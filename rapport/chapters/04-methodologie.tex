@@ -1,0 +1,180 @@
+\chapter{Démarche d'ingénierie et conduite du projet}
+
+\section{Un projet guidé par l'usage}
+
+Le point de départ n'était pas le choix d'une base de données ou d'un outil
+de visualisation. Il fallait d'abord comprendre ce que chaque utilisateur
+chercherait à savoir devant la ligne. Un opérateur a besoin d'une réponse
+immédiate : l'imprimante peut-elle marquer la prochaine pièce ? Un technicien
+de maintenance travaille autrement. Il compare une dérive, un niveau, une
+pression et l'historique des défauts. La direction, enfin, ne souhaite pas lire
+des dizaines de tags ; elle veut mesurer l'effet des arrêts sur la production.
+
+Cette différence a orienté tout le projet. Les données sont collectées une
+seule fois, mais leur présentation varie selon le rôle. La même logique vaut
+pour les indicateurs : avant de calculer une disponibilité, il faut définir
+quand la machine est réellement attendue. Ce travail de définition a évité de
+construire un tableau techniquement correct mais faux du point de vue de la
+production.
+
+\section{Organisation en incréments}
+
+Le développement a suivi des incréments courts. Chacun devait produire une
+preuve observable, pas seulement un fichier de configuration. Cette approche
+était mieux adaptée qu'un cycle entièrement séquentiel, car deux informations
+restaient inconnues : le payload exact de Litmus Edge et la liste définitive
+des tags de l'imprimante installée.
+
+\begin{table}[H]
+\centering
+\caption{Incréments du projet et preuves attendues}
+\begin{tabularx}{\textwidth}{p{0.13\textwidth}p{0.30\textwidth}YY}
+\toprule
+Étape & Travail principal & Preuve produite & Risque retiré \\
+\midrule
+I1 & Courtier, stockage et Grafana & Services sains et source de données joignable &
+Incompatibilité de la pile \\
+I2 & Simulateur CIJ & Messages MQTT observables et scénarios reproductibles &
+Absence de source industrielle \\
+I3 & Flux Node-RED & Points visibles dans InfluxDB et rejets explicites &
+Payload invalide ou perdu \\
+I4 & Tableaux de bord & Trois vues alimentées en direct &
+Indicateurs inutilisables \\
+I5 & Alertes et notifier & Alerte de test reçue par webhook &
+Supervision uniquement passive \\
+I6 & Durcissement et validation & Tests automatisés et procédure de raccordement &
+Échec tardif sur site \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Une étape n'était considérée comme terminée qu'après un essai sur la
+chaîne complète. Par exemple, publier un message MQTT ne suffisait pas pour
+valider l'ingestion. Il fallait retrouver le point dans InfluxDB, exécuter la
+requête Flux correspondante et afficher la valeur dans Grafana. Cette règle a
+mis en évidence les erreurs d'intégration beaucoup plus tôt.
+
+\section{Décomposition du travail}
+
+Le projet a été découpé selon le trajet réel de la donnée. Cette organisation
+limite les dépendances entre composants et facilite le diagnostic lorsqu'une
+valeur disparaît.
+
+\begin{enumerate}
+  \item \textbf{Comprendre la ligne :} identifier le rôle de l'imprimante, les
+        situations d'arrêt et les utilisateurs de la supervision.
+  \item \textbf{Définir les contrats :} fixer les topics, les champs obligatoires,
+        les unités et les identifiants des messages.
+  \item \textbf{Produire des données contrôlées :} simuler les états normaux,
+        les périodes sans commande, les dérives et les défauts.
+  \item \textbf{Transporter et valider :} utiliser MQTT, isoler les messages
+        incorrects et garantir un comportement idempotent.
+  \item \textbf{Historiser et calculer :} stocker les séries temporelles puis
+        ajouter les classifications et prévisions utiles.
+  \item \textbf{Restituer et alerter :} adapter les vues aux utilisateurs et
+        transmettre les situations qui exigent une action.
+  \item \textbf{Prouver :} automatiser les tests, capturer les interfaces
+        alimentées et documenter le raccordement futur.
+\end{enumerate}
+
+Le dépôt suit cette même décomposition. Le courtier, le simulateur,
+l'ingestion, les tableaux de bord et le notifier disposent chacun de leur
+dossier. Le fichier Compose reste le point d'assemblage.
+
+\section{Traçabilité entre besoin et validation}
+
+Les exigences du cahier des charges ne sont pas laissées sous forme de liste
+isolée. Chaque exigence possède une réalisation identifiable et au moins une
+preuve. Cette matrice sert aussi de plan pour la recette sur site.
+
+\begin{longtable}{p{0.10\textwidth}p{0.34\textwidth}p{0.38\textwidth}}
+\caption{Matrice de traçabilité simplifiée}\\
+\toprule
+Réf. & Réalisation & Validation \\
+\midrule
+\endfirsthead
+\toprule
+Réf. & Réalisation & Validation \\
+\midrule
+\endhead
+F01 & Trois entrées MQTT dans Node-RED & Publication réelle sur chaque famille de topics \\
+F02 & Classification et panneau d'état opérateur & Changement d'état visible après une publication \\
+F03 & Champs de niveaux et courbes temporelles & Requêtes Flux exécutées par l'API Grafana \\
+F04 & Lissage du débit et champ \texttt{hours\_to\_empty} & Scénario de baisse puis contrôle de la prévision \\
+F05 & Date effective et facteur limitant & Lot ouvert depuis 85 jours avec cinq jours restants \\
+F06 & Champ \texttt{line\_demanding} et quatre classifications & Essai avec et sans demande \\
+F07 & Mesure \texttt{printer\_event} et Pareto & Injection de défauts avec codes et durées \\
+F08 & Mesure \texttt{marking\_event} & DMC, grade et résultat retrouvés dans le bucket \\
+F09 & Sept règles provisionnées et webhook & Exécution des chaînes de requête d'alerte \\
+F10 & Vues opérateur, maintenance et direction & Chargement authentifié et captures des trois vues \\
+\bottomrule
+\end{longtable}
+
+\section{Gestion des risques}
+
+Les risques ont été traités selon leur effet sur le projet, pas seulement
+selon leur probabilité. L'absence d'accès au site était certaine pendant le
+développement ; le bon choix n'était donc pas d'attendre, mais de rendre le
+prototype indépendant de cette attente.
+
+\begin{table}[H]
+\centering
+\caption{Principaux risques et mesures prises}
+\begin{tabularx}{\textwidth}{p{0.29\textwidth}p{0.12\textwidth}p{0.12\textwidth}Y}
+\toprule
+Risque & Prob. & Impact & Traitement \\
+\midrule
+Pas d'accès à Litmus Edge & Forte & Fort & Simulateur et contrat d'entrée stable \\
+Tags ou unités différents sur site & Forte & Fort & Couche de mapping concentrée dans Node-RED \\
+Faux arrêt pendant une période sans commande & Forte & Fort & Signal de demande obligatoire \\
+Doublon provoqué par MQTT QoS~1 & Moyenne & Moyen & Clé InfluxDB stable et essai de retransmission \\
+Rupture de communication & Moyenne & Fort & Last Will, détection d'absence et alerte \\
+Fuite d'un secret dans le dépôt & Faible & Fort & Variables d'environnement et fichiers exclus \\
+Saturation par forte cardinalité & Faible & Moyen & Identifiants volatils stockés comme champs, pas comme tags \\
+Alertes trop nombreuses & Moyenne & Fort & Temporisation, regroupement et filtrage par demande \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Choix consignés et alternatives écartées}
+
+Plusieurs choix ont changé au cours du travail. Ils ont été conservés dans
+les fichiers du projet et dans la documentation afin que la raison reste
+compréhensible lors d'une reprise.
+
+\begin{table}[H]
+\centering
+\caption{Décisions d'architecture structurantes}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.28\textwidth}Y}
+\toprule
+Décision & Alternative examinée & Motif \\
+\midrule
+InfluxDB comme stockage temporel & Base relationnelle avec extension temporelle &
+Modèle naturel pour les mesures, écriture Line Protocol et requêtes Flux \\
+Node-RED pour l'ingestion & Service Python ou Telegraf &
+Mapping visible, modifiable sur site et supervision intégrée \\
+Mosquitto sur un nœud & Courtier distribué &
+Volume faible et absence de besoin de haute disponibilité au prototype \\
+JSON avant Sparkplug B & Protobuf dès la simulation &
+Diagnostic plus simple tant que le payload Litmus réel n'est pas connu \\
+Trois tableaux de bord & Une vue universelle &
+Questions et niveaux de détail différents selon le rôle \\
+Notifier derrière un webhook & Canal codé dans chaque alerte &
+Changer de canal sans modifier les règles Grafana \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Critère de fin d'une fonctionnalité}
+
+Pour ce projet, une fonctionnalité est terminée lorsque cinq conditions sont
+réunies : sa configuration est versionnée, son entrée est contrôlée, son
+résultat est visible, un test reproductible couvre le risque principal et la
+documentation explique son exploitation. Cette définition évite de confondre
+une démonstration ponctuelle avec un composant transmissible à une autre
+personne.
+
+La commande \texttt{make verify} matérialise ce critère. Elle regroupe les
+contrôles de syntaxe, les tests du simulateur et du notifier, le chargement des
+tableaux de bord, l'exécution des requêtes Flux et la présence de données ayant
+traversé Node-RED. Le chapitre de validation détaille ces preuves.

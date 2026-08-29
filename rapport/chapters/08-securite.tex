@@ -7,6 +7,14 @@ la plateforme envisagée du réseau des automates. Cette situation augmente le
 risque : une erreur de configuration pourrait rendre un service accessible
 depuis une zone qui n'en a pas besoin.
 
+Le guide NIST consacré à la sécurité OT recommande de tenir compte des
+contraintes particulières des systèmes industriels : disponibilité, durée de
+vie des équipements et conséquences physiques d'une action informatique
+~\cite{nist80082}. La séparation en zones et la limitation des communications
+suivent également l'approche ISA/IEC~62443~\cite{iec62443}. Dans ce projet,
+cela se traduit par une collecte à sens unique et par des droits minimaux pour
+chaque service.
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{deploiement-securite.pdf}

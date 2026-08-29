@@ -258,6 +258,10 @@ Node-RED, InfluxDB, Grafana, maintenance, automotive glazing.
   \item[PLC / API] Programmable Logic Controller / automate programmable industriel.
   \item[PROFINET] Protocole Ethernet industriel utilisé sur la ligne.
   \item[QoS] Quality of Service, niveau de garantie de livraison MQTT.
+  \item[ACL] Access Control List, liste de droits d'accès.
+  \item[LWT] Last Will and Testament, message MQTT publié lors d'une déconnexion anormale.
+  \item[RPO] Recovery Point Objective, perte de données maximale admissible.
+  \item[RTO] Recovery Time Objective, durée maximale de reprise visée.
   \item[TRS] Taux de rendement synthétique.
 \end{description}
 
@@ -271,11 +275,13 @@ Node-RED, InfluxDB, Grafana, maintenance, automotive glazing.
 \input{chapters/02-entreprise}
 \input{chapters/03-etat-art}
 \input{chapters/03-contexte-besoins}
+\input{chapters/04-methodologie}
 \input{chapters/04-conception}
 \input{chapters/05-realisation}
 \input{chapters/06-supervision}
 \input{chapters/07-validation}
 \input{chapters/08-securite}
+\input{chapters/09-industrialisation}
 \input{chapters/09-conclusion}
 \appendix
 \input{chapters/10-annexes}
@@ -360,6 +366,16 @@ vol.~22, no~15, article 5901, 2022,
 C. Krupitzer et al., ``A Survey on Predictive Maintenance for Industry
 4.0'', 2020,
 \url{https://arxiv.org/abs/2002.08224}.
+
+\bibitem{nist80082}
+National Institute of Standards and Technology, \emph{Guide to Operational
+Technology (OT) Security}, NIST SP 800-82 Rev.~3, 2023,
+\url{https://csrc.nist.gov/pubs/sp/800/82/r3/final}.
+
+\bibitem{iec62443}
+ISA, \emph{ISA/IEC 62443 Series of Standards -- Industrial Automation and
+Control Systems Security},
+\url{https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards}.
 
 \end{thebibliography}
 

@@ -46,6 +46,91 @@
 }
 \end{lstlisting}
 
+\section{Dictionnaire de la télémétrie}
+
+Le tableau suivant constitue le contrat interne utilisé par les flux et les
+tableaux de bord. Les valeurs réelles devront être reliées à ce contrat au
+niveau du mapping Litmus Edge--Node-RED.
+
+{\small
+\renewcommand{\arraystretch}{1.35}
+\begin{longtable}{p{0.34\textwidth}p{0.11\textwidth}p{0.10\textwidth}p{0.30\textwidth}}
+\caption{Principaux champs de \texttt{printer\_telemetry}}\\
+\toprule
+Champ & Type & Unité & Signification \\
+\midrule
+\endfirsthead
+\toprule
+Champ & Type & Unité & Signification \\
+\midrule
+\endhead
+\nolinkurl{printer_state_code} & entier & -- & État fonctionnel interne \\
+\nolinkurl{jet_status_code} & entier & code & État natif du jet \\
+\nolinkurl{printing_status_code} & entier & code & Pause, impression ou non-prêt \\
+\nolinkurl{jet_running} & booléen & -- & Jet d'encre actif \\
+\nolinkurl{line_demanding} & booléen & -- & Impression attendue par la ligne \\
+\texttt{ink\_level} & réel & \% & Niveau d'encre disponible \\
+\texttt{solvent\_level} & réel & \% & Niveau de solvant disponible \\
+\texttt{ink\_viscosity} & réel & unité machine & Mesure de viscosité utilisée par l'alerte \\
+\texttt{head\_pressure} & réel & bar & Pression au niveau du circuit d'encre \\
+\texttt{pressure\_10mbar} & entier & 10 mbar & Représentation native de la pression \\
+\texttt{head\_temperature} & réel & $^{\circ}$C & Température de la tête \\
+\texttt{ink\_temperature} & réel & $^{\circ}$C & Température de l'encre \\
+\texttt{electronic\_temperature} & réel & $^{\circ}$C & Température de l'électronique \\
+\texttt{motor\_speed\_rpm} & réel & tr/min & Vitesse instantanée du moteur \\
+\nolinkurl{motor_speed_target_rpm} & réel & tr/min & Consigne de vitesse du moteur \\
+\texttt{print\_count} & entier & pièces & Compteur cumulé d'impressions \\
+\texttt{jet\_run\_hours} & réel & h & Durée cumulée de fonctionnement du jet \\
+\texttt{pump\_run\_hours} & réel & h & Durée cumulée de fonctionnement de la pompe \\
+\nolinkurl{filter_hours_remaining} & réel & h & Durée avant service du filtre \\
+\texttt{ink\_tank\_level\_mm} & réel & mm & Hauteur simulée du réservoir interne \\
+\texttt{additive\_tank\_level\_mm} & réel & mm & Hauteur simulée du réservoir d'additif \\
+\texttt{ink\_internal\_tank\_ml} & réel & mL & Volume interne d'encre estimé \\
+\addlinespace[4pt]
+\nolinkurl{additive_internal_tank_ml} & réel & mL & Volume interne d'additif estimé \\
+\addlinespace[4pt]
+\nolinkurl{external_cartridge_capacity_ml} & réel & mL & Capacité nominale de la cartouche \\
+\nolinkurl{internal_tank_capacity_ml} & réel & mL & Capacité nominale du réservoir interne \\
+\texttt{internal\_reserve\_hours} & réel & h & Réserve interne annoncée \\
+\addlinespace[4pt]
+\nolinkurl{time_left_ink_tenth_hours} & entier & 0,1 h & Autonomie d'encre au format natif \\
+\addlinespace[4pt]
+\texttt{classification} & texte & -- & Production, arrêt ou attente normale \\
+\nolinkurl{ink_hours_to_empty} & réel & h & Prévision d'épuisement de l'encre \\
+\nolinkurl{solvent_hours_to_empty} & réel & h & Prévision d'épuisement du solvant \\
+\bottomrule
+\end{longtable}
+}
+
+\section{Contrat des événements}
+
+Un événement contient au minimum \texttt{message\_id}, \texttt{ts},
+\texttt{printer\_id} et \texttt{event\_type}. Les champs complémentaires
+dépendent du type.
+
+\begin{table}[H]
+\centering
+\caption{Champs propres aux événements}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}p{0.34\textwidth}Y}
+\toprule
+Type & Champs principaux & Usage \\
+\midrule
+\texttt{state\_change} & \texttt{from\_state}, \texttt{to\_state}, \texttt{demanding} &
+Reconstituer l'état et sa durée \\
+\texttt{fault} & \texttt{code}, \texttt{description}, \texttt{duration\_s} &
+Historique, temps perdu et Pareto \\
+\texttt{warning} & \texttt{code}, \texttt{description} &
+Signaler une dérive non bloquante \\
+\texttt{refill} & type, lot, dates, volume &
+Suivre le consommable installé \\
+\texttt{service} & description et compteur &
+Tracer une intervention préventive \\
+\texttt{birth} & site, ligne, constructeur, modèle &
+Annoncer la source au démarrage \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \chapter{Commandes d'exploitation}
 
 \begin{table}[H]
@@ -65,3 +150,101 @@ Commande & Effet \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\section{Lecture rapide des journaux}
+
+\begin{longtable}{p{0.31\textwidth}p{0.25\textwidth}p{0.31\textwidth}}
+\caption{Diagnostic à partir d'un symptôme}\\
+\toprule
+Symptôme & Premier contrôle & Suite du diagnostic \\
+\midrule
+\endfirsthead
+\toprule
+Symptôme & Premier contrôle & Suite du diagnostic \\
+\midrule
+\endhead
+Grafana affiche ``Aucune donnée'' & Fraîcheur du dernier point &
+Source InfluxDB, requête, puis Node-RED \\
+Les trois vues sont vides & Santé InfluxDB &
+Bucket, token et écriture Node-RED \\
+Une seule mesure manque & Topic MQTT correspondant &
+Validation et journal de rejet \\
+Valeur incohérente & Unité dans la table de mapping &
+Comparer à l'interface machine \\
+Alerte d'arrêt sans panne & Signal \texttt{line\_demanding} &
+Vérifier le capteur ou la logique de demande \\
+Doublons visibles & Horodatage et tags &
+Contrôler que le rejeu conserve la même clé \\
+Notifier silencieux & Endpoint \texttt{/health} &
+Canal, secret puis payload Grafana \\
+\bottomrule
+\end{longtable}
+
+\section{Liste de contrôle avant démonstration}
+
+\begin{enumerate}
+  \item lancer \texttt{make demo} et attendre l'état sain des six services ;
+  \item exécuter \texttt{make verify} sans ignorer un test en échec ;
+  \item confirmer que le dernier point InfluxDB date de moins d'une minute ;
+  \item ouvrir les vues opérateur, maintenance et direction ;
+  \item vérifier la présence des paramètres natifs 9450c ;
+  \item ouvrir les quatre onglets Node-RED et le journal de rejet ;
+  \item exécuter l'alerte de test vers le canal de démonstration ;
+  \item garder le simulateur visible pour expliquer un changement d'état ;
+  \item ne jamais supprimer les volumes juste avant une présentation.
+\end{enumerate}
+
+\chapter{Procès-verbal de recette à compléter}
+
+\begin{table}[H]
+\centering
+\caption{Informations de la session de recette}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}Y}
+\toprule
+Information & Valeur \\
+\midrule
+Site et ligne & \rule{0.72\linewidth}{0.4pt} \\
+Modèle et identifiant de l'imprimante & \rule{0.72\linewidth}{0.4pt} \\
+Version du projet & \rule{0.72\linewidth}{0.4pt} \\
+Date et heure & \rule{0.72\linewidth}{0.4pt} \\
+Représentant production & \rule{0.72\linewidth}{0.4pt} \\
+Représentant maintenance & \rule{0.72\linewidth}{0.4pt} \\
+Représentant informatique industrielle & \rule{0.72\linewidth}{0.4pt} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{longtable}{p{0.08\textwidth}p{0.47\textwidth}p{0.13\textwidth}p{0.18\textwidth}}
+\caption{Feuille de résultat}\\
+\toprule
+Réf. & Contrôle & Résultat & Observation \\
+\midrule
+\endfirsthead
+\toprule
+Réf. & Contrôle & Résultat & Observation \\
+\midrule
+\endhead
+R01 & Les valeurs Grafana correspondent à la machine & \(\square\) OK \(\square\) KO & \\
+R02 & L'arrêt sans demande ne crée pas de panne & \(\square\) OK \(\square\) KO & \\
+R03 & L'arrêt avec demande déclenche l'alerte & \(\square\) OK \(\square\) KO & \\
+R04 & Les consommables et leur lot sont corrects & \(\square\) OK \(\square\) KO & \\
+R05 & Un défaut est enregistré avec sa durée & \(\square\) OK \(\square\) KO & \\
+R06 & Une perte de flux est signalée & \(\square\) OK \(\square\) KO & \\
+R07 & Le service reprend après redémarrage & \(\square\) OK \(\square\) KO & \\
+R08 & La sauvegarde de test est restaurée & \(\square\) OK \(\square\) KO & \\
+\bottomrule
+\end{longtable}
+
+\vspace{1cm}
+\noindent\textbf{Décision :}
+\(\square\) accepté \quad
+\(\square\) accepté avec réserves \quad
+\(\square\) refusé
+
+\vspace{1.5cm}
+\noindent
+\begin{tabularx}{\textwidth}{XXX}
+Production & Maintenance & Informatique industrielle \\
+\vspace{1.5cm} & & \\
+Signature & Signature & Signature \\
+\end{tabularx}

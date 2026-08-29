@@ -1,0 +1,275 @@
+\chapter{Industrialisation et exploitation}
+
+\section{Ce que le prototype prouve}
+
+Le prototype démontre que la chaîne en aval de Litmus Edge peut recevoir,
+contrôler, historiser et présenter les données d'une imprimante CIJ. Il ne
+prouve pas encore que chaque tag simulé existe sous le même nom et dans la même
+unité sur la machine du site. La mise en production ne consiste donc pas à
+déplacer les conteneurs tels quels. Elle commence par une qualification du
+flux réel.
+
+Le principe d'industrialisation est de conserver les composants déjà validés
+et de remplacer uniquement la source simulée et son mapping. Le courtier, le
+modèle InfluxDB, les requêtes Grafana et les alertes ne doivent changer que si
+les essais réels montrent une différence de sémantique, pas une simple
+différence de nom.
+
+\section{Prérequis de raccordement}
+
+Le raccordement demande un petit ensemble d'informations, mais aucune ne peut
+être supposée. Elles doivent être obtenues avant l'ouverture du flux de
+production :
+
+\begin{itemize}
+  \item export des tags disponibles dans Litmus Edge, avec leur type et leur
+        unité ;
+  \item exemple horodaté des messages émis par le connecteur nord ;
+  \item fréquence de publication et comportement lors d'une valeur inchangée ;
+  \item identifiant exact de l'imprimante, de la ligne et du site ;
+  \item correspondance entre les codes natifs et les états compréhensibles par
+        l'utilisateur ;
+  \item signal indiquant qu'une impression est attendue ;
+  \item plages normales de pression, viscosité et température validées par la
+        maintenance ;
+  \item règles de conservation, destinataires des alertes et propriétaire de
+        l'exploitation.
+\end{itemize}
+
+Sans signal de demande, l'état instantané reste visible, mais la disponibilité
+ne peut pas être présentée comme un indicateur de production. Cette limite doit
+être affichée explicitement plutôt que compensée par une hypothèse horaire.
+
+\section{Table de mapping Litmus Edge}
+
+Le mapping isole le vocabulaire du site du modèle interne de GlassInk Monitor.
+Il constitue le seul endroit où les noms de tags réels sont traduits. Une table
+de recette est préparée avant de modifier le flux Node-RED.
+
+{\small
+\renewcommand{\arraystretch}{1.45}
+\begin{longtable}{p{0.22\textwidth}p{0.20\textwidth}p{0.13\textwidth}p{0.30\textwidth}}
+\caption{Extrait de la table de mapping à compléter sur site}\\
+\toprule
+Champ interne & Tag Litmus & Unité attendue & Contrôle de recette \\
+\midrule
+\endfirsthead
+\toprule
+Champ interne & Tag Litmus & Unité attendue & Contrôle de recette \\
+\midrule
+\endhead
+\nolinkurl{jet_status_code} & À renseigner & Code entier & Comparer à l'écran machine \\
+\addlinespace[2pt]
+\nolinkurl{printing_status_code} & À renseigner & Code entier & Lancer puis suspendre l'impression \\
+\addlinespace[2pt]
+\nolinkurl{line_demanding} & À renseigner & Booléen & Présenter puis retirer une pièce \\
+\addlinespace[2pt]
+\nolinkurl{ink_level} & À renseigner & \% & Comparer au niveau affiché \\
+\addlinespace[2pt]
+\nolinkurl{solvent_level} & À renseigner & \% & Comparer au niveau affiché \\
+\addlinespace[2pt]
+\nolinkurl{head_pressure} & À renseigner & bar & Vérifier le facteur de conversion \\
+\addlinespace[2pt]
+\nolinkurl{pressure_10mbar} & À renseigner & $10$ mbar & Comparer au champ précédent \\
+\addlinespace[2pt]
+\nolinkurl{ink_viscosity} & À renseigner & Unité machine & Observer la valeur stable \\
+\addlinespace[2pt]
+\nolinkurl{head_temperature} & À renseigner & $^{\circ}$C & Comparer à l'interface locale \\
+\addlinespace[2pt]
+\nolinkurl{print_count} & À renseigner & Compteur & Imprimer un lot connu \\
+\bottomrule
+\end{longtable}
+}
+
+Une conversion doit être documentée dans cette table. Par exemple, un tag de
+pression exprimé en unités de 10~mbar est divisé par 100 pour obtenir des bars.
+Ce calcul appartient au mapping, pas à chaque panneau Grafana. Une correction
+future reste ainsi locale.
+
+\section{Plan de mise en service}
+
+La mise en service est découpée en six passages. Chaque passage possède une
+condition de sortie ; si elle n'est pas remplie, le suivant ne commence pas.
+
+\begin{table}[H]
+\centering
+\caption{Séquence de raccordement industriel}
+\begin{tabularx}{\textwidth}{p{0.08\textwidth}p{0.28\textwidth}Y}
+\toprule
+Phase & Action & Condition de sortie \\
+\midrule
+P1 & Installer la VM et les volumes persistants & Contrôles de santé conformes \\
+P2 & Configurer comptes, certificats, ACL et sauvegarde & Revue avec le responsable réseau \\
+P3 & Recevoir le flux Litmus sur un topic de qualification & Payload capturé sans effet sur la ligne \\
+P4 & Compléter le mapping et vérifier les unités & Comparaison avec l'interface de l'imprimante \\
+P5 & Exécuter la recette en parallèle du suivi existant & Indicateurs acceptés par les utilisateurs \\
+P6 & Activer les notifications puis transmettre l'exploitation & Procédures et responsabilités signées \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Pendant P3 à P5, la plateforme reste en lecture seule. Les alertes externes
+sont d'abord dirigées vers un canal de test. Elles ne sont envoyées aux
+opérateurs qu'après une période d'observation suffisante pour mesurer les faux
+positifs.
+
+\section{Dimensionnement}
+
+Le volume de la ligne ne justifie pas une architecture distribuée. Avec une
+publication toutes les cinq secondes, la télémétrie produit au maximum un point
+large par période. Sur une activité de 24~h/24, cinq jours par semaine, cela
+représente environ :
+
+\begin{equation}
+N_{\text{télémétrie}} = 52 \times 5 \times 24 \times
+\frac{3600}{5} = 4\,492\,800 \text{ points/an}
+\end{equation}
+
+Le débit maximal annoncé, inférieur à 200 pièces par heure, ajoute moins de
+1,25 million d'événements de marquage par an. Les défauts et remplissages sont
+beaucoup moins fréquents. Une seule VM reste donc suffisante pour le prototype
+et pour une première ligne, sous réserve de mesurer l'espace disque après un
+mois de données réelles.
+
+\begin{table}[H]
+\centering
+\caption{Configuration initiale proposée pour une ligne}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.20\textwidth}Y}
+\toprule
+Ressource & Valeur de départ & Raison \\
+\midrule
+Processeur & 4 vCPU & Marge pour InfluxDB, Grafana et les six conteneurs \\
+Mémoire & 8~Go & Cache InfluxDB et rendu simultané des tableaux de bord \\
+Disque & 100~Go extensibles & Historique, journaux et sauvegarde locale temporaire \\
+Système & Linux 64 bits & Support stable de Docker et du pare-feu hôte \\
+Réseau & Une interface supervisée & Flux limités par les règles du site \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Ces valeurs sont des points de départ, pas une garantie de capacité. Après
+un mois, l'exploitant relève la taille du bucket, le temps des requêtes et la
+mémoire maximale. Le dimensionnement est ensuite ajusté à partir de ces
+mesures.
+
+\section{Conservation et sauvegarde}
+
+Toutes les données n'ont pas la même valeur dans le temps. Les mesures fines
+sont utiles pour comprendre les minutes qui précèdent un défaut. Plusieurs
+années plus tard, une agrégation horaire suffit souvent pour une tendance. Les
+marquages et défauts peuvent au contraire relever d'une obligation de
+traçabilité plus longue.
+
+\begin{table}[H]
+\centering
+\caption{Politique de conservation à faire valider}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}p{0.22\textwidth}Y}
+\toprule
+Donnée & Proposition & Décision attendue \\
+\midrule
+Télémétrie à 5 secondes & 90 jours & Besoin d'analyse fine de la maintenance \\
+Agrégats à 5 minutes & 24 mois & Comparaison des dérives et consommations \\
+Événements machine & 5 ans & Historique des défauts et interventions \\
+Marquages et résultats qualité & Selon la règle qualité du site & Traçabilité automobile \\
+Journaux techniques & 30 jours & Diagnostic sans accumulation inutile \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La sauvegarde doit inclure les volumes InfluxDB et Grafana ainsi que les
+fichiers versionnés. Une copie quotidienne avec sept versions glissantes est
+une base raisonnable. Une copie hebdomadaire est conservée sur un support
+distinct. Le site devra fixer le RPO et le RTO ; le prototype ne peut pas les
+décider à sa place. Une restauration trimestrielle sur une VM vide fournit la
+preuve que les sauvegardes restent utilisables.
+
+\section{Exploitation quotidienne}
+
+L'exploitation ne doit pas dépendre de la personne qui a développé le
+prototype. Les actions courantes sont donc limitées et associées à un rôle.
+
+\begin{table}[H]
+\centering
+\caption{Répartition des responsabilités d'exploitation}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}YYY}
+\toprule
+Action & Production & Maintenance & Administrateur \\
+\midrule
+Consulter l'état et acquitter une information & Oui & Oui & Oui \\
+Analyser les tendances et les défauts & Lecture & Oui & Oui \\
+Modifier un seuil d'alerte & Non & Proposition & Validation \\
+Changer un mapping de tag & Non & Revue & Exécution \\
+Gérer comptes, certificats et sauvegardes & Non & Non & Oui \\
+Redémarrer un service après diagnostic & Non & Selon procédure & Oui \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Un contrôle quotidien vérifie la fraîcheur du dernier point, l'état des
+conteneurs et l'absence de croissance anormale des rejets. Chaque semaine, la
+maintenance examine les alertes les plus fréquentes et les prévisions de
+consommables. Chaque mois, l'administrateur contrôle l'espace disque, la
+sauvegarde et l'expiration des certificats.
+
+\section{Conduite d'un incident}
+
+Lorsqu'un panneau n'affiche plus de données, le diagnostic suit le trajet de la
+mesure. Il ne faut pas redémarrer tous les services sans savoir où le flux s'est
+arrêté.
+
+\begin{enumerate}
+  \item confirmer l'heure du dernier point dans Grafana ;
+  \item vérifier la santé d'InfluxDB et de sa source Grafana ;
+  \item consulter \texttt{/health} et le journal de rejet de Node-RED ;
+  \item observer le topic MQTT concerné avec un compte en lecture seule ;
+  \item contrôler l'état de publication de Litmus Edge ;
+  \item si le flux revient, confirmer que l'horodatage progresse et que les
+        alertes se résolvent ;
+  \item consigner la cause, la durée et l'action réalisée.
+\end{enumerate}
+
+Cette procédure distingue une panne de supervision d'une panne d'imprimante.
+La première produit une absence de données ; la seconde continue normalement
+à produire des données contenant un état de défaut.
+
+\section{Critères d'acceptation sur site}
+
+La recette finale doit couvrir une séquence normale et plusieurs cas limites.
+Elle est menée avec un opérateur, un technicien de maintenance et le
+responsable de la plateforme.
+
+\begin{longtable}{p{0.32\textwidth}p{0.42\textwidth}p{0.14\textwidth}}
+\caption{Recette fonctionnelle de mise en service}\\
+\toprule
+Scénario & Résultat attendu & Statut \\
+\midrule
+\endfirsthead
+\toprule
+Scénario & Résultat attendu & Statut \\
+\midrule
+\endhead
+Démarrage puis jet prêt & Les codes et l'état opérateur suivent la machine & À tester \\
+Pièce demandée et impression correcte & Classification \texttt{producing} & À tester \\
+Arrêt sans commande & Aucune alerte de production & À tester \\
+Arrêt pendant une demande & Alerte après temporisation & À tester \\
+Variation réelle d'un niveau & Courbe, taux et prévision cohérents & À tester \\
+Remplissage d'un fluide & Nouveau lot et prévision réinitialisée & À tester \\
+Défaut machine connu & Code, texte et durée historisés & À tester \\
+Coupure de publication & Alerte d'absence de données & À tester \\
+Redémarrage de Node-RED & Reprise sans duplication visible & À tester \\
+Restauration d'une sauvegarde & Tableaux et historique de nouveau accessibles & À tester \\
+\bottomrule
+\end{longtable}
+
+\section{Améliorations possibles}
+
+Une fois le flux réel stabilisé, trois prolongements deviennent pertinents.
+Le premier est le passage à Sparkplug B si Litmus Edge le fournit nativement,
+afin de normaliser la naissance, la mort et l'état des nœuds. Le deuxième est
+une prévision enrichie par l'historique des commandes et la vitesse du jet. Le
+troisième est l'ajout de plusieurs lignes avec un même modèle de dashboard et
+des variables de site.
+
+Ces extensions ne sont pas nécessaires pour prouver la solution actuelle.
+Elles doivent être engagées seulement après la collecte de données réelles et
+la mesure d'un besoin. Le raccordement d'une première ligne reste la priorité.

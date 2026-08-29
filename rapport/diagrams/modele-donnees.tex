@@ -1,0 +1,49 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=13mm and 10mm]
+  \node[titletext] (title) {Modèle temporel InfluxDB};
+
+  \node[databox, below=12mm of title, text width=47mm] (bucket) {
+    \includegraphics[height=5mm]{../assets/stack/influxdb.pdf}\\[-1mm]
+    \textbf{Bucket printer\_monitoring}\\
+    organisation : saint-gobain
+  };
+
+  \node[box, below left=17mm and 49mm of bucket, text width=38mm] (telemetry) {
+    \textbf{printer\_telemetry}\\
+    niveaux, viscosité\\
+    températures, compteurs
+  };
+  \node[box, right=of telemetry, text width=38mm] (event) {
+    \textbf{printer\_event}\\
+    états, défauts\\
+    remplissages, péremption
+  };
+  \node[box, right=of event, text width=38mm] (marking) {
+    \textbf{marking\_event}\\
+    DMC, résultat\\
+    grade de lecture
+  };
+
+  \coordinate (mid) at ($(telemetry.south)!0.5!(marking.south)$);
+  \node[compactbox, below left=16mm and 10mm of mid, text width=54mm,
+        draw=sgblue, fill=sgblue!5] (tags) {
+    \textbf{Tags indexés}\\
+    imprimante, ligne, classification, grade
+  };
+  \node[compactbox, right=of tags, text width=54mm,
+        draw=sggreen, fill=sggreen!6] (fields) {
+    \textbf{Champs}\\
+    mesures numériques et informations descriptives
+  };
+
+  \draw[dataflow] (bucket) -- (telemetry);
+  \draw[dataflow] (bucket) -- (event);
+  \draw[dataflow] (bucket) -- (marking);
+  \draw[flow] (telemetry) -- (tags);
+  \draw[flow] (event) -- (tags);
+  \draw[flow] (event) -- (fields);
+  \draw[flow] (marking) -- (fields);
+\end{tikzpicture}
+\end{document}

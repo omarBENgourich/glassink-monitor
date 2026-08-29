@@ -1,0 +1,488 @@
+{
+  "uid": "printer-operator",
+  "title": "Imprimante — Opérateur",
+  "tags": [
+    "imprimante",
+    "opérateur"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "10s",
+  "editable": true,
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "État de l’imprimante",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "AUCUNE DONNÉE",
+                  "color": "gray",
+                  "index": 4
+                },
+                "1": {
+                  "text": "EN PRODUCTION",
+                  "color": "green",
+                  "index": 0
+                },
+                "2": {
+                  "text": "À L’ARRÊT",
+                  "color": "red",
+                  "index": 1
+                },
+                "3": {
+                  "text": "EN ATTENTE",
+                  "color": "yellow",
+                  "index": 2
+                },
+                "4": {
+                  "text": "SANS COMMANDE",
+                  "color": "blue",
+                  "index": 3
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"printer_state_code\")\n  |> group(columns: [\"printer_id\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: if r.classification == \"producing\" then 1.0 else if r.classification == \"downtime\" then 2.0 else if r.classification == \"idle_jet_on\" then 3.0 else 4.0}))\nfallback = array.from(rows: [{_time: time(v: 0), _value: 0.0}])\nunion(tables: [fallback, real]) |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Dernier défaut",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Aucun défaut",
+                  "index": 0
+                },
+                "42": {
+                  "text": "E-042 — Pression d’encre hors plage",
+                  "index": 1
+                },
+                "51": {
+                  "text": "E-051 — Viscosité de l’encre hors plage",
+                  "index": 2
+                },
+                "67": {
+                  "text": "E-067 — Capot de tête d’impression ouvert",
+                  "index": 3
+                },
+                "73": {
+                  "text": "E-073 — Buse partiellement obstruée",
+                  "index": 4
+                },
+                "88": {
+                  "text": "E-088 — Défaut de retour d’encre",
+                  "index": 5
+                },
+                "95": {
+                  "text": "E-095 — Déclenchement d’impression manqué",
+                  "index": 6
+                },
+                "110": {
+                  "text": "E-110 — Électrode de charge contaminée",
+                  "index": 7
+                },
+                "121": {
+                  "text": "E-121 — Pression de pompe faible",
+                  "index": 8
+                },
+                "134": {
+                  "text": "E-134 — Température ambiante hors plage",
+                  "index": 9
+                },
+                "999": {
+                  "text": "Défaut non répertorié",
+                  "index": 10
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"fault\" and r._field == \"message_id\")\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: if r.code == \"E-042\" then 42.0 else if r.code == \"E-051\" then 51.0 else if r.code == \"E-067\" then 67.0 else if r.code == \"E-073\" then 73.0 else if r.code == \"E-088\" then 88.0 else if r.code == \"E-095\" then 95.0 else if r.code == \"E-110\" then 110.0 else if r.code == \"E-121\" then 121.0 else if r.code == \"E-134\" then 134.0 else 999.0}))\nfallback = array.from(rows: [{_time: time(v: 0), _value: 0.0}])\nunion(tables: [fallback, real]) |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Encre",
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 35
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"ink_level\") |> group(columns: [\"printer_id\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Encre — agir dans",
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: j",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 14
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"ink_action_days\") |> group(columns: [\"printer_id\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Solvant",
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 35
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"solvent_level\") |> group(columns: [\"printer_id\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Solvant — agir dans",
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: j",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 14
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"solvent_action_days\") |> group(columns: [\"printer_id\"]) |> last()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pare-brise marqués par 5 minutes",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Pare-brise",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 0
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"marking_event\" and r._field == \"message_id\")\n  |> group()\n  |> aggregateWindow(every: 5m, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "sg-printer-node-red-ingestion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node-RED MQTT ingestion for the CIJ printer monitoring platform",
+  "dependencies": {
+    "bcryptjs": "3.0.3"
+  }
+}

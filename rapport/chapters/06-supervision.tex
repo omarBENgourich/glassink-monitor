@@ -1,0 +1,141 @@
+\chapter{Tableaux de bord et alertes}
+
+\section{Principes de présentation}
+
+Un seul tableau de bord pour tous les utilisateurs aurait accumulé les
+indicateurs jusqu'à devenir illisible. Trois vues ont donc été créées. Leur
+vocabulaire est en français et leurs requêtes renvoient un état explicite
+lorsqu'aucune donnée n'est encore disponible.
+
+\section{Vue opérateur}
+
+La vue opérateur doit être comprise rapidement, même à distance. Elle contient
+l'état de l'imprimante, le dernier défaut, les niveaux d'encre et de solvant,
+le délai avant action et le nombre de pare-brise marqués par période de cinq
+minutes.
+
+\begin{table}[H]
+\centering
+\caption{Correspondance entre état technique et texte affiché}
+\begin{tabularx}{0.85\textwidth}{p{0.33\textwidth}Y}
+\toprule
+Classification & Libellé opérateur \\
+\midrule
+\texttt{producing} & EN PRODUCTION \\
+\texttt{downtime} & À L'ARRÊT \\
+\texttt{idle\_jet\_on} & EN ATTENTE \\
+\texttt{idle\_no\_order} & SANS COMMANDE \\
+absence de mesure & AUCUNE DONNÉE \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Le dernier défaut est traduit en français dans la requête. S'il n'existe
+aucun défaut, le panneau affiche ``Aucun défaut'' au lieu de ``No data''.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{grafana-operateur.png}
+  \caption{Tableau de bord opérateur alimenté par la simulation}
+  \label{fig:grafana-operateur}
+\end{figure}
+
+\section{Vue maintenance}
+
+La vue maintenance rassemble les informations nécessaires à un diagnostic :
+
+\begin{itemize}
+  \item tableau des consommables avec lot, niveau, jours avant épuisement,
+        date effective de péremption et facteur limitant ;
+  \item courbes d'encre et de solvant ;
+  \item viscosité comparée à la consigne ;
+  \item pression et température de la tête ;
+  \item heures restantes avant service ;
+  \item liste des défauts récents ;
+  \item Pareto du temps perdu par code de défaut ;
+  \item historique des lots installés.
+\end{itemize}
+
+Le tableau des consommables met côte à côte les deux échéances. Une cartouche
+peut être encore remplie à 60~\% et devoir être remplacée cinq jours plus tard
+à cause de sa date après ouverture. Afficher uniquement le niveau masquerait ce
+cas.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]{grafana-maintenance.png}
+  \caption{Tableau de bord de maintenance : consommables, tendances et défauts}
+  \label{fig:grafana-maintenance}
+\end{figure}
+
+\section{Vue direction}
+
+La vue direction évite les mesures brutes. Elle présente la disponibilité du
+jour, le nombre de pare-brise marqués, le rendement au premier passage, le
+temps d'arrêt, la répartition du temps et les principales causes d'arrêt. Le
+graphique de répartition conserve une catégorie ``sans commande'', car cette
+information explique la différence entre temps calendaire et temps demandé.
+
+Si aucune demande n'a encore été observée dans la journée, le panneau de
+disponibilité affiche ``NON CALCULÉE''. Une valeur de 0~\% aurait une autre
+signification : la ligne aurait demandé des impressions sans aucune
+production.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{grafana-direction.png}
+  \caption{Tableau de bord de direction alimenté par les données simulées}
+  \label{fig:grafana-direction}
+\end{figure}
+
+\section{Règles d'alerte}
+
+\begin{longtable}{p{0.29\textwidth}p{0.45\textwidth}p{0.18\textwidth}}
+\caption{Règles provisionnées dans Grafana}\\
+\toprule
+Alerte & Condition & Destinataire \\
+\midrule
+\endfirsthead
+\toprule
+Alerte & Condition & Destinataire \\
+\midrule
+\endhead
+Consommable bientôt vide &
+Temps estimé inférieur à 8 heures pendant 5 minutes &
+Maintenance \\
+Niveau bas &
+Niveau inférieur à 20~\% pendant 5 minutes &
+Maintenance \\
+Consommable proche de la péremption &
+Moins de 14 jours avant la date effective &
+Maintenance \\
+Consommable périmé &
+Date effective dépassée &
+Maintenance et qualité \\
+Arrêt avec demande &
+Classification \texttt{downtime} pendant 2 minutes &
+Opérateur \\
+Viscosité hors plage &
+Écart supérieur à 0,3 pendant 15 minutes &
+Maintenance \\
+Absence de données &
+Dernière mesure reçue depuis plus de 120 secondes &
+Ingénierie \\
+\bottomrule
+\end{longtable}
+
+Les alertes liées à l'arrêt utilisent le signal de demande. En revanche,
+l'absence totale de télémétrie reste un incident, même sans commande : elle
+peut indiquer une perte de communication ou un service arrêté.
+
+\section{Lisibilité et langue}
+
+Les titres et les états visibles ont été traduits en français. Les noms de
+mesures, champs et codes de défaut restent techniques, car ils servent de
+contrat avec l'ingestion. La traduction intervient au niveau de la requête ou
+de l'affichage, sans modifier la donnée brute.
+
+Les figures~\ref{fig:grafana-operateur} à~\ref{fig:grafana-direction}
+présentent les vues de l'instance Grafana de démonstration alimentée par les
+données InfluxDB. Les panneaux disposent d'un état de repli explicite afin de
+ne pas confondre une absence de défaut avec une absence de données.

@@ -1,0 +1,366 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{newpxtext,newpxmath}
+\usepackage{microtype}
+\usepackage{geometry}
+\geometry{top=2.4cm,bottom=2.5cm,left=2.7cm,right=2.3cm,headheight=15pt}
+
+\usepackage{graphicx}
+\graphicspath{{assets/processed/}{assets/}{assets/stack/}{figures/selected/}{figures/screenshots/}{diagrams/}}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\sisetup{locale=FR,output-decimal-marker={,}}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{etoolbox}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\definecolor{sgnavy}{HTML}{173B72}
+\definecolor{sgblue}{HTML}{2E6DB4}
+\definecolor{sgteal}{HTML}{25A7A1}
+\definecolor{sgred}{HTML}{E63B47}
+\definecolor{sgorange}{HTML}{F28C28}
+\definecolor{sggreen}{HTML}{4D9460}
+\definecolor{sggray}{HTML}{5F6B76}
+\definecolor{sglight}{HTML}{F2F5F8}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=sgnavy,
+  citecolor=sgteal,
+  urlcolor=sgblue,
+  pdftitle={GlassInk Monitor - Rapport de PFA},
+  pdfauthor={Omar Bengourich},
+  pdfsubject={Supervision IoT d'une imprimante industrielle CIJ}
+}
+
+\setlength{\parindent}{1.1cm}
+\setlength{\parskip}{0.25em}
+\setlist{itemsep=0.25em,topsep=0.35em}
+\renewcommand{\arraystretch}{1.25}
+
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{sgnavy}}
+  {\filleft\Large\chaptername\ \thechapter}
+  {0.5ex}
+  {\titlerule\vspace{1ex}\Huge}
+  [\vspace{0.5ex}\titlerule]
+\titleformat{\section}{\Large\bfseries\color{sgnavy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{sgblue}}{\thesubsection}{0.7em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small GlassInk Monitor}
+\fancyhead[R]{\small Omar Bengourich}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\newtcolorbox{projectbox}[1][]{
+  colback=sglight,
+  colframe=sgblue,
+  boxrule=0.7pt,
+  arc=2pt,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,
+  #1
+}
+\newtcolorbox{warningbox}[1][]{
+  colback=sgred!5,
+  colframe=sgred,
+  boxrule=0.7pt,
+  arc=2pt,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,
+  #1
+}
+\newtcolorbox{resultbox}[1][]{
+  colback=sggreen!7,
+  colframe=sggreen,
+  boxrule=0.7pt,
+  arc=2pt,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,
+  #1
+}
+
+\lstdefinestyle{glassink}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{sglight},
+  frame=single,
+  rulecolor=\color{sggray!40},
+  numbers=left,
+  numberstyle=\tiny\color{sggray},
+  breaklines=true,
+  showstringspaces=false,
+  keywordstyle=\color{sgblue}\bfseries,
+  commentstyle=\color{sggreen},
+  stringstyle=\color{sgred},
+  columns=fullflexible
+}
+\lstset{style=glassink}
+
+\newcommand{\stackicon}[2]{%
+  \begin{minipage}[t]{0.13\textwidth}
+    \centering
+    \includegraphics[height=9mm]{#1}\\[1.5mm]
+    \footnotesize #2
+  \end{minipage}
+}
+
+\begin{document}
+
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+  \thispagestyle{empty}
+  \begin{center}
+    \begin{tabularx}{\textwidth}{C{0.19\textwidth} X C{0.19\textwidth}}
+      \includegraphics[height=2.1cm]{LOGO-UIT-TRANSPARANT1.png}
+      &
+      \centering
+      \includegraphics[width=0.52\textwidth]{ensa-logo.png}
+      &
+      \includegraphics[width=0.17\textwidth]{Unknown.png}
+    \end{tabularx}
+
+    \vspace{1.2cm}
+    {\large Université Ibn Tofail}\\[1mm]
+    {\large École Nationale des Sciences Appliquées de Kénitra}\\[8mm]
+
+    {\color{sgnavy}\rule{\textwidth}{1.1pt}}\\[5mm]
+    {\Large\bfseries RAPPORT DE PROJET DE FIN D'ANNÉE}\\[2mm]
+    {\large Cycle ingénieur}\\[5mm]
+    {\color{sgnavy}\rule{\textwidth}{1.1pt}}
+
+    \vfill
+    {\Huge\bfseries\color{sgnavy} GlassInk Monitor}\\[5mm]
+    {\LARGE Conception d'une plateforme IoT de supervision\\
+    d'une imprimante industrielle CIJ}\\[7mm]
+    {\large Application à une ligne de marquage de pare-brise automobile}
+
+    \vfill
+    \begin{projectbox}
+      \centering
+      \textbf{Réalisé par :} Omar Bengourich\\[2mm]
+      Élève ingénieur en Réseaux et Systèmes de Communication\\
+      Option Systèmes ubiquitaires\\[3mm]
+      \textbf{Organisme d'accueil :} Saint-Gobain Sekurit Maroc
+    \end{projectbox}
+
+    \vfill
+    \includegraphics[width=0.22\textwidth]{sekurit-logo.pdf}\\[4mm]
+    {\large Année universitaire 2025--2026}
+  \end{center}
+\end{titlepage}
+
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+
+\chapter*{Dédicace}
+\addcontentsline{toc}{chapter}{Dédicace}
+À mes parents et à ma famille, pour leur confiance et leur patience pendant mes
+années d'études. À mes amis et à mes camarades de promotion, avec qui les
+problèmes techniques ont souvent fini par devenir des souvenirs. Je leur dédie
+ce travail.
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+Je remercie les équipes de Saint-Gobain Sekurit Maroc qui ont partagé leur
+connaissance de la ligne de production et du contexte industriel. Leurs
+explications m'ont permis de comprendre qu'un arrêt d'imprimante ne se résume
+pas à un voyant rouge : il touche la cadence, la qualité du marquage et le
+travail de l'équipe de maintenance.
+
+Je remercie également les enseignants de l'École Nationale des Sciences
+Appliquées de Kénitra pour la formation reçue en réseaux, systèmes de
+communication et informatique industrielle. Enfin, je remercie ma famille et
+mes proches pour leur soutien pendant la préparation de ce projet.
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+Ce projet porte sur la supervision d'une imprimante à jet d'encre continu
+(CIJ) utilisée pour le marquage de vitrages automobiles. Les données de la
+machine et de la ligne sont déjà collectées au niveau de Litmus Edge. Le
+travail consiste à construire la chaîne située en aval : transport MQTT,
+ingestion visuelle avec Node-RED, stockage temporel dans InfluxDB, tableaux de bord
+Grafana et alertes.
+
+Le prototype suit l'état de l'imprimante, les niveaux d'encre et de solvant, la
+viscosité, les températures, les compteurs, les défauts et les dates de
+péremption des consommables. Une difficulté particulière vient du
+fonctionnement à la commande. La production est possible 24 heures sur 24,
+cinq jours sur sept, mais la machine peut rester inactive lorsqu'aucun
+pare-brise de la référence concernée n'est demandé. Le calcul de disponibilité
+utilise donc un signal de demande et ne confond pas l'absence de commande avec
+une panne.
+
+Faute d'accès au Litmus Edge réel pendant le développement, un simulateur
+reproduit les états, les consommations, les périodes sans commande et les
+défauts d'une imprimante CIJ. Les essais ont validé le parcours complet des
+données, le rejet des messages invalides, la reprise après redémarrage et la
+protection contre les doublons MQTT.
+
+\noindent\textbf{Mots-clés :} Internet des objets industriel, CIJ, MQTT,
+Node-RED, InfluxDB, Grafana, maintenance, pare-brise.
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+This project addresses the monitoring of a continuous inkjet (CIJ) printer
+used to mark automotive glazing. Machine and production-line data are already
+collected by Litmus Edge. The work focuses on the downstream platform: MQTT
+transport, visual ingestion with Node-RED, InfluxDB time-series storage, Grafana
+dashboards, and alert delivery.
+
+The prototype monitors printer state, ink and solvent levels, viscosity,
+temperatures, counters, faults, and consumable expiry dates. Availability
+cannot be measured against wall-clock time because production is order-driven.
+A demand signal separates actual downtime from normal idle periods without an
+order.
+
+Since the real Litmus Edge was not available during development, a simulator
+reproduces CIJ behavior, fluid consumption, order gaps, and injected faults.
+End-to-end tests validated data persistence, malformed-message handling,
+restart recovery, and MQTT duplicate protection.
+
+\noindent\textbf{Keywords:} Industrial Internet of Things, CIJ, MQTT,
+Node-RED, InfluxDB, Grafana, maintenance, automotive glazing.
+
+\chapter*{Liste des sigles}
+\addcontentsline{toc}{chapter}{Liste des sigles}
+\begin{description}[style=nextline,leftmargin=3.4cm,labelwidth=3cm]
+  \item[CIJ] Continuous Inkjet, impression à jet d'encre continu.
+  \item[DMC] Data Matrix Code, code bidimensionnel de traçabilité.
+  \item[IIoT] Industrial Internet of Things.
+  \item[MQTT] Message Queuing Telemetry Transport.
+  \item[OT] Operational Technology, systèmes industriels de production.
+  \item[IT] Information Technology, systèmes informatiques de gestion.
+  \item[PLC / API] Programmable Logic Controller / automate programmable industriel.
+  \item[PROFINET] Protocole Ethernet industriel utilisé sur la ligne.
+  \item[QoS] Quality of Service, niveau de garantie de livraison MQTT.
+  \item[TRS] Taux de rendement synthétique.
+\end{description}
+
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+
+\pagenumbering{arabic}
+\input{chapters/01-introduction}
+\input{chapters/02-entreprise}
+\input{chapters/03-etat-art}
+\input{chapters/03-contexte-besoins}
+\input{chapters/04-conception}
+\input{chapters/05-realisation}
+\input{chapters/06-supervision}
+\input{chapters/07-validation}
+\input{chapters/08-securite}
+\input{chapters/09-conclusion}
+\appendix
+\input{chapters/10-annexes}
+
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{Bibliographie}
+
+\bibitem{sekuritprocess}
+Saint-Gobain Sekurit, \emph{Automotive Glass Manufacturing}, documentation
+sur les procédés de fabrication du vitrage automobile,
+\url{https://www.saint-gobain-sekurit.com/sites/hps-mac3-sekurit-sekurit/files/2021-04/Saint-Gobain\%20Sekurit\%20automotive\%20glazing\%20production\%20processes.pdf}.
+
+\bibitem{markem9450}
+Markem-Imaje, \emph{9450 Continuous Inkjet Printer -- Technical
+Specifications}, fiche technique constructeur,
+\url{https://www.markem-imaje.com/docs/default-source/product-brochures/hq/9450-ds-hq-d1-markem-imaje.pdf}.
+
+\bibitem{mqtt5}
+OASIS, \emph{MQTT Version 5.0}, standard OASIS,
+\url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html}.
+
+\bibitem{mosquitto}
+Eclipse Mosquitto, \emph{Documentation du courtier MQTT},
+\url{https://mosquitto.org/documentation/}.
+
+\bibitem{litmusmqtt}
+Litmus Automation, \emph{Generic MQTT Integration Guide},
+\url{https://docs.litmus.io/litmusedge/how-to-guides/integration-guides/generic-mqtt-tcp-lwt}.
+
+\bibitem{litmusedge}
+Litmus Automation, \emph{Litmus Edge API Documentation},
+\url{https://api.litmus.io/le/}.
+
+\bibitem{opcua}
+OPC Foundation, \emph{OPC Unified Architecture -- Part 1: Overview and
+Concepts},
+\url{https://reference.opcfoundation.org/specs/OPC-10000-1/4}.
+
+\bibitem{sparkplug}
+Eclipse Foundation, \emph{Sparkplug Specification 3.0.0},
+\url{https://sparkplug.eclipse.org/specification/}.
+
+\bibitem{nodered}
+Node-RED, \emph{User Guide},
+\url{https://nodered.org/docs/}.
+
+\bibitem{telegraf}
+InfluxData, \emph{Telegraf Plugin Directory},
+\url{https://docs.influxdata.com/telegraf/v1/plugins/}.
+
+\bibitem{influxdb}
+InfluxData, \emph{InfluxDB OSS v2 Documentation},
+\url{https://docs.influxdata.com/influxdb/v2/}.
+
+\bibitem{influxschema}
+InfluxData, \emph{InfluxDB schema design},
+\url{https://docs.influxdata.com/influxdb/v2/write-data/best-practices/schema-design/}.
+
+\bibitem{influxduplicate}
+InfluxData, \emph{Handle duplicate points},
+\url{https://docs.influxdata.com/influxdb/v2/write-data/best-practices/duplicate-points/}.
+
+\bibitem{flux}
+InfluxData, \emph{Get started with Flux},
+\url{https://docs.influxdata.com/influxdb/v2/query-data/get-started/}.
+
+\bibitem{grafanainflux}
+Grafana Labs, \emph{Configure the InfluxDB data source},
+\url{https://grafana.com/docs/grafana/latest/datasources/influxdb/configure-influxdb-data-source/}.
+
+\bibitem{dockercompose}
+Docker, \emph{Multi-container applications with Docker Compose},
+\url{https://docs.docker.com/get-started/docker-concepts/running-containers/multi-container-applications/}.
+
+\bibitem{li2022condition}
+Z. Li, F. Fei et G. Zhang, ``Edge-to-Cloud IIoT for Condition Monitoring in
+Manufacturing Systems with Ubiquitous Smart Sensors'', \emph{Sensors},
+vol.~22, no~15, article 5901, 2022,
+\url{https://doi.org/10.3390/s22155901}.
+
+\bibitem{krupitzer2020survey}
+C. Krupitzer et al., ``A Survey on Predictive Maintenance for Industry
+4.0'', 2020,
+\url{https://arxiv.org/abs/2002.08224}.
+
+\end{thebibliography}
+
+\end{document}

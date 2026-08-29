@@ -1,0 +1,98 @@
+\chapter{Saint-Gobain Sekurit et le contexte industriel}
+
+\section{Présentation du site de Kénitra}
+
+Saint-Gobain Sekurit fabrique des vitrages automobiles pour la première monte
+et le marché du remplacement. Implanté dans l'Atlantic Free Zone, le site de
+Kénitra produit des pare-brise automobiles et dessert plusieurs constructeurs.
+Son organisation associe les opérations de transformation du verre, le
+marquage, l'assemblage et le contrôle qualité.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.68\textwidth]{usine-kenitra.jpg}
+  \caption{Vue du site Saint-Gobain Sekurit de Kénitra}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Fiche synthétique de l'organisme d'accueil}
+\begin{tabularx}{0.93\textwidth}{>{\bfseries}p{0.31\textwidth}Y}
+\toprule
+Élément & Présentation synthétique \\
+\midrule
+Entreprise & Saint-Gobain Sekurit Maroc \\
+Implantation & Atlantic Free Zone, Kénitra \\
+Activité & Production de pare-brise automobiles \\
+Clients cités & Stellantis, Renault, Volkswagen et Seat \\
+Certifications citées & IATF 16949, ISO 9001, ISO 14001 et ISO 45001 \\
+Produits présentés & Pare-brise feuilleté, PVB chauffant et PVB antenne \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Le pare-brise feuilleté}
+
+Un pare-brise feuilleté associe deux feuilles de verre et un film intermédiaire
+en PVB. Ce film maintient les fragments en cas de choc et peut recevoir des
+fonctions supplémentaires, comme le chauffage ou une antenne. La fabrication
+ne consiste donc pas seulement à découper une forme. Elle enchaîne des
+opérations de préparation, d'impression, de bombage, d'assemblage et de
+contrôle~\cite{sekuritprocess}.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.44\textwidth}
+    \centering
+    \includegraphics[width=\linewidth,height=5.2cm,keepaspectratio]{pare-brise-feuillete.jpg}
+    \caption{Pare-brise feuilleté}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.50\textwidth}
+    \centering
+    \includegraphics[width=\linewidth,height=5.2cm,keepaspectratio]{procede-verre-feuillete.jpg}
+    \caption{Vue d'ensemble du procédé}
+  \end{subfigure}
+  \caption{Produit et chaîne de fabrication du vitrage automobile}
+\end{figure}
+
+\section{Place de l'impression et du contrôle}
+
+Dans la partie pré-processing, le verre est chargé, découpé, façonné, lavé et
+imprimé. La sérigraphie du logo et de la bande noire est suivie d'un contrôle
+visuel et d'un contrôle automatique. Le projet GlassInk Monitor concerne un
+autre équipement d'impression, une
+imprimante CIJ dédiée au marquage DMC, mais les enjeux restent proches :
+position correcte, contraste suffisant, lisibilité et traçabilité.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{serigraphie.jpg}
+    \caption{Table d'impression sur verre}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{pare-brise-controle.jpg}
+    \caption{Pare-brise au poste de contrôle}
+  \end{subfigure}
+  \caption{Exemples d'impression et de contrôle dans la ligne}
+\end{figure}
+
+Un défaut de marquage peut avoir plusieurs origines. La donnée imprimée peut
+être fausse, la machine peut manquer de fluide, la viscosité peut dériver ou la
+buse peut être partiellement obstruée. Une supervision utile doit donc réunir
+les informations du procédé, de l'imprimante et des consommables.
+
+\section{Systèmes industriels présents}
+
+Les PLC coordonnent les équipements de la ligne et échangent leurs données sur
+PROFINET. Litmus Edge récupère les tags industriels, les normalise et peut les
+publier vers des systèmes informatiques. Il ne remplace pas les automates :
+les automatismes restent responsables du contrôle de la production.
+
+Ce découpage fixe la frontière du projet. GlassInk Monitor commence au niveau
+de la sortie MQTT de Litmus Edge. La configuration des drivers PLC et la
+logique de commande de la ligne ne font pas partie du travail.

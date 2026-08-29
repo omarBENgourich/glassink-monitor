@@ -1,0 +1,270 @@
+\chapter{Recherche bibliographique et état de l'art}
+
+\section{Démarche de recherche}
+
+Cette étude ne prétend pas être une revue systématique de toute la
+littérature sur l'IIoT. Elle répond à une question plus concrète : quelles
+solutions permettent de construire une supervision industrielle à partir de
+données déjà disponibles sur une plateforme edge ? La recherche a donc suivi
+six axes : l'interopérabilité OT/IT, la surveillance conditionnelle, le
+transport MQTT, l'ingestion des messages, le stockage temporel et la
+visualisation.
+
+Les sources ont été choisies dans un ordre simple. Les normes et
+spécifications officielles ont servi pour les protocoles. Les documentations
+des éditeurs ont permis de vérifier les possibilités des outils. Enfin, des
+articles scientifiques ont été consultés pour situer le projet par rapport à
+la maintenance conditionnelle et prédictive. Les critères de sélection ont
+été la compatibilité avec Litmus Edge, la possibilité d'un déploiement local,
+la lisibilité pour une équipe industrielle et un coût raisonnable pour une
+seule ligne.
+
+\section{De la maintenance corrective à la surveillance conditionnelle}
+
+La maintenance corrective intervient après la panne. La maintenance
+préventive remplace ou contrôle un équipement selon un calendrier, même si son
+état réel ne l'exige pas encore. La maintenance conditionnelle s'appuie au
+contraire sur des mesures : température, pression, vibration, niveau,
+viscosité ou compteur d'heures. Elle cherche une dérive avant que le défaut ne
+bloque la production.
+
+La maintenance prédictive va plus loin. Elle utilise un historique suffisant
+pour estimer une probabilité de panne ou une durée de vie restante. La revue
+de Krupitzer et al. montre que cette démarche repose sur la collecte, la
+préparation et l'interprétation de données industrielles, souvent avec des
+méthodes d'apprentissage automatique~\cite{krupitzer2020survey}. Li, Fei et
+Zhang décrivent une architecture edge-to-cloud appliquée à la surveillance
+d'équipements de fabrication. Le traitement à la périphérie réduit le volume
+échangé et rapproche l'analyse de la machine~\cite{li2022condition}.
+
+GlassInk Monitor se place volontairement au niveau de la \textbf{surveillance
+conditionnelle}. Le système détecte des seuils, suit des tendances et
+extrapole le temps avant épuisement d'un fluide. Il ne prédit pas encore une
+panne par apprentissage automatique. Il manque pour cela des mois de données
+réelles, des défauts correctement étiquetés et un retour de la maintenance.
+Employer dès maintenant le terme de maintenance prédictive donnerait une
+image plus ambitieuse, mais techniquement inexacte.
+
+\section{Données disponibles sur la Markem-Imaje 9450c}
+
+La ligne étudiée utilise une imprimante Markem-Imaje 9450c à jet d'encre
+continu, adaptée aux cadences industrielles et équipée d'une connectivité
+Ethernet~\cite{markem9450}. Elle est raccordée à un automate Siemens
+S7-1515-2~PN. La communication s'appuie sur TCP/IP et sur des trames contenant
+un identifiant, une longueur, des données utiles et une somme de contrôle.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.66\textwidth]{imprimante-markem-imaje-9450.png}
+  \caption{Imprimante CIJ Markem-Imaje 9450 et tête de marquage}
+  \label{fig:imprimante-9450}
+\end{figure}
+
+Le périmètre de supervision retient huit familles d'informations : alertes,
+état général, état de l'impression, état du jet, informations des deux
+cartouches, paramètres de fonctionnement et tâche d'impression active.
+
+La réponse des paramètres de fonctionnement contient 84 octets et plus de
+quarante valeurs. Parmi elles figurent la vitesse moteur, la pression, la
+viscosité, le niveau d'encre, la quantité d'additif injectée, les températures
+électronique, encre et tête, les états des électrovannes, le niveau du tube,
+l'autonomie d'encre et la consommation moyenne. Les cartouches externes
+d'encre et d'additif ont une capacité de 800~mL ; les réservoirs internes ont
+une capacité annoncée de 1,075~L et maintiennent une réserve de fonctionnement
+d'environ 24~heures. La capacité des cartouches externes et les fonctions de
+suivi de l'autonomie sont également indiquées dans la documentation technique
+du constructeur~\cite{markem9450}.
+
+Dans l'architecture existante, la 9450c est reliée à Logoface4, puis au système
+Gosun. Les données rejoignent ensuite Litmus Edge et l'IoT Backbone. Cette
+organisation confirme que la plateforme de
+supervision n'a pas à interroger directement l'imprimante : les données déjà
+centralisées sur Litmus Edge constituent son point d'entrée. Elle fournit aussi
+une base concrète au simulateur, qui reproduit les codes d'état du jet, l'état
+d'impression et les paramètres utiles à la maintenance.
+
+\section{Acquisition et interopérabilité à la frontière OT/IT}
+
+Dans une architecture industrielle classique, OPC UA offre un modèle
+d'information commun, des services client--serveur et un mode
+publication--abonnement. La spécification prévoit aussi l'authentification,
+le chiffrement et le contrôle d'intégrité~\cite{opcua}. Une application
+pourrait donc lire directement les variables d'un automate ou d'un serveur
+OPC UA.
+
+Ce choix n'est pas retenu ici. Les automates, l'imprimante et les équipements
+de la ligne sont déjà raccordés à Litmus Edge. La plateforme communique avec
+les équipements, conserve des données localement et peut les publier vers
+MQTT ou REST~\cite{litmusedge}. Ajouter un second client direct vers les PLC
+dupliquerait la collecte et agrandirait inutilement le périmètre de sécurité.
+Le point d'entrée de GlassInk Monitor est donc la sortie nord de Litmus Edge.
+L'application reste en lecture seule et ne commande aucun équipement.
+
+\section{Transport des données}
+
+MQTT découple la source et les consommateurs. Litmus Edge publie sans connaître
+Node-RED, et Node-RED peut redémarrer sans modifier la configuration des
+automates. Le QoS~1 retenu garantit une livraison au moins une fois, ce qui
+signifie qu'un message peut être reçu deux fois~\cite{mqtt5}. Cette propriété
+explique la protection contre les doublons mise en place dans la base.
+
+MQTT ne définit cependant ni le nom des topics industriels ni la structure du
+contenu. Sparkplug complète MQTT avec un espace de noms, un format de charge
+utile et une gestion de l'état de session adaptée aux usages
+IIoT~\cite{sparkplug}. Son format binaire Protobuf demande néanmoins un
+décodage supplémentaire.
+
+Pour le prototype, des topics explicites et un contenu JSON ont été choisis.
+Ils sont faciles à lire, à simuler et à contrôler pendant une démonstration.
+Lors du raccordement, deux cas restent possibles : Litmus Edge publie ce JSON,
+ou il publie en Sparkplug B et un décodeur est ajouté à l'entrée du flux.
+Cette adaptation ne change ni le modèle des mesures ni les tableaux de bord.
+
+\section{Solutions d'ingestion comparées}
+
+L'ingestion ne consiste pas seulement à copier un message. Elle vérifie le
+schéma, sépare télémétrie et événements, rejette les données invalides et
+garantit l'idempotence. Trois approches ont été étudiées.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Comparaison des solutions d'ingestion}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.17\textwidth}YYY}
+\toprule
+Solution & Points forts & Limites dans ce projet & Appréciation \\
+\midrule
+Telegraf &
+Configuration déclarative, nombreux plugins, faible consommation. &
+Moins souple pour les événements hétérogènes, les remplissages et les
+transactions métier. &
+Très adapté à des mesures régulières et déjà normalisées. \\
+Node-RED &
+Flux visuel, adaptation rapide des messages, bonne lisibilité du chemin de
+données. &
+L'éditeur doit être protégé et les flux doivent rester versionnés et testés. &
+Retenu pour le prototype et le raccordement à Litmus Edge. \\
+Service spécifique &
+Contrôle complet du décodage et des transactions. &
+Davantage de code, de maintenance et une logique moins visible pour l'équipe
+industrielle. &
+À réserver à un besoin que Node-RED ne peut pas couvrir proprement. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Telegraf reste une bonne solution lorsque les messages sont déjà homogènes et
+que le chemin entre la source et la base demande peu d'adaptation~\cite{telegraf}.
+Ici, la télémétrie, les événements de maintenance et les résultats de marquage
+n'ont pas la même structure. Node-RED a donc été retenu pour valider chaque
+famille, ajouter les tags utiles et produire le Line Protocol attendu par
+InfluxDB. Le flux reste lisible dans l'éditeur tout en étant conservé dans le
+dépôt du projet.
+
+\section{Stockage, visualisation et alertes}
+
+InfluxDB organise une donnée autour d'une mesure, de tags indexés, de champs et
+d'un horodatage~\cite{influxdb,influxschema}. Ce modèle correspond directement
+aux variables de l'imprimante : l'identité de la machine et la ligne deviennent
+des tags, tandis que les niveaux, températures et compteurs restent des champs.
+Les défauts et les marquages sont conservés dans des mesures distinctes. Cette
+séparation évite de multiplier les colonnes lorsque la liste des tags Litmus
+évolue.
+
+Le prototype utilise InfluxDB OSS 2.7 avec une organisation et un bucket dédiés.
+La durée de rétention du bucket est illimitée pour la démonstration ; elle devra
+être fixée avec les équipes qualité et infrastructure avant le raccordement au
+site. Node-RED enrichit chaque point avec la classification de la machine et les
+prévisions de consommables. Les requêtes Flux filtrent ensuite les séries,
+appliquent les fenêtres temporelles et agrègent les indicateurs affichés dans
+Grafana~\cite{flux}.
+
+Grafana dispose d'une source InfluxDB native. Elle interroge le bucket en Flux,
+construit les vues opérateur, maintenance et direction, puis évalue les règles
+d'alerte~\cite{grafanainflux}. Pour une ligne et moins de 200 pièces par heure,
+une instance de chaque service suffit. La haute disponibilité pourra être
+étudiée à partir de mesures réelles de charge et des exigences du site.
+
+\section{Synthèse et positionnement du projet}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Positionnement de GlassInk Monitor}
+\begin{tabularx}{\textwidth}{
+  >{\raggedright\arraybackslash}p{0.16\textwidth}
+  >{\raggedright\arraybackslash}p{0.25\textwidth}
+  >{\raggedright\arraybackslash}p{0.20\textwidth}
+  Y}
+\toprule
+Brique & Options étudiées & Choix & Motif principal \\
+\midrule
+Point d'intégration &
+PLC/OPC UA direct, Litmus Edge &
+Litmus Edge &
+La collecte industrielle existe déjà. \\
+Transport &
+MQTT JSON, Sparkplug B &
+MQTT JSON au prototype &
+Lecture et simulation simples ; décodage Sparkplug ajoutable. \\
+Ingestion &
+Telegraf, Node-RED, service spécifique &
+Node-RED &
+Transformation visuelle des mesures et événements. \\
+Stockage &
+InfluxDB, base relationnelle, stockage par fichiers &
+InfluxDB 2.7 &
+Modèle temporel natif, rétention et intégration directe avec Grafana. \\
+Supervision &
+Application web, Grafana &
+Grafana &
+Tableaux de bord, rôles et alertes déjà disponibles. \\
+Déploiement &
+Services natifs, Docker Compose, Kubernetes &
+Docker Compose &
+Reproductible et proportionné à une seule ligne. \\
+Niveau d'analyse &
+Seuils, surveillance conditionnelle, modèle prédictif &
+Surveillance conditionnelle &
+Pas encore d'historique réel étiqueté pour entraîner un modèle. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+L'état de l'art conduit ainsi à une architecture edge-to-dashboard maîtrisée :
+Litmus Edge comme frontière industrielle, MQTT pour le découplage, Node-RED
+pour l'adaptation, InfluxDB pour l'historisation et Grafana pour l'usage
+quotidien. L'apport du projet tient à la manière dont ces briques répondent au
+fonctionnement de la ligne : l'activité dépend de la commande, les fluides
+peuvent expirer avant d'être vides et le raccordement final doit rester limité
+à la configuration de la source Litmus Edge.
+
+\clearpage
+\section{Problématique retenue}
+
+À la suite de cette analyse, la problématique du PFA est formulée ainsi :
+
+\begin{projectbox}
+\centering
+\emph{Comment transformer les données disponibles sur Litmus Edge en une
+supervision fiable de l'imprimante CIJ, capable d'anticiper les ruptures et la
+péremption des consommables, de distinguer un arrêt réel d'une période sans
+commande et de présenter une information adaptée à chaque utilisateur ?}
+\end{projectbox}
+
+Cette question générale se décline en trois questions d'ingénierie :
+
+\begin{enumerate}
+  \item comment transporter et enregistrer les messages en tenant compte des
+        retransmissions possibles avec le QoS~1 ?
+  \item comment calculer la disponibilité sans classer une absence de commande
+        comme une panne ?
+  \item comment réunir dans une seule décision le temps avant épuisement et la
+        date effective de péremption d'un fluide ?
+\end{enumerate}
+
+Deux contraintes encadrent la réponse. Le projet ne commande ni l'imprimante
+ni les automates : le flux reste en lecture seule. Par ailleurs, l'accès au
+Litmus Edge réel n'était pas disponible pendant le développement. La solution
+devait donc être construite et vérifiée avec un simulateur, puis rester
+remplaçable par la source industrielle sans reprendre toute l'application.

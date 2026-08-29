@@ -1,0 +1,2 @@
+# Dashboard JSON definitions live here (Phase 4).
+# Grafana loads every .json in this directory at startup and every 30s.

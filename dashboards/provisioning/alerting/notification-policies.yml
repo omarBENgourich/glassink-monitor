@@ -1,0 +1,16 @@
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: notifier
+    group_by:
+      - alertname
+      - printer_id
+      - consumable_type
+    # Give a burst of related alerts a moment to arrive so they arrive as one
+    # message. A phone buzzing six times at 3am gets silenced.
+    group_wait: 30s
+    group_interval: 2m
+    # Consumable alerts stay true for hours by design. Re-notifying every few
+    # minutes would train people to ignore them.
+    repeat_interval: 4h

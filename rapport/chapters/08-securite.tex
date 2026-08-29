@@ -1,0 +1,78 @@
+\chapter{Sécurité et préparation du déploiement}
+
+\section{Constat réseau}
+
+Les informations disponibles indiquent qu'aucun pare-feu ne sépare actuellement
+la plateforme envisagée du réseau des automates. Cette situation augmente le
+risque : une erreur de configuration pourrait rendre un service accessible
+depuis une zone qui n'en a pas besoin.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{deploiement-securite.pdf}
+  \caption{Déploiement proposé et mesures à appliquer avant le raccordement}
+  \label{fig:security}
+\end{figure}
+
+\section{Mesures intégrées au prototype}
+
+\begin{itemize}
+  \item les services du projet ne commandent aucun équipement industriel ;
+  \item Node-RED, InfluxDB, Mosquitto et le notifier sont liés à l'interface
+        locale dans l'environnement de développement ;
+  \item l'éditeur Node-RED demande un identifiant et un mot de passe ;
+  \item les secrets restent dans \texttt{.env}, avec des permissions de fichier
+        limitées ;
+  \item Mosquitto possède un exemple de configuration TLS avec comptes séparés
+        et ACL ;
+  \item le flux Node-RED ne contient pas le token InfluxDB ;
+  \item les messages invalides sont isolés dans un journal de rejet.
+\end{itemize}
+
+\section{Mesures requises sur site}
+
+Avant toute connexion à Litmus Edge, plusieurs actions sont nécessaires :
+
+\begin{enumerate}
+  \item placer la VM de supervision dans un VLAN défini avec le responsable du
+        réseau industriel ;
+  \item appliquer un pare-feu hôte avec une politique de refus par défaut ;
+  \item autoriser uniquement les connexions nécessaires entre Litmus Edge, le
+        courtier et les interfaces utilisateur ;
+  \item activer TLS pour MQTT et utiliser un certificat délivré ou approuvé par
+        l'entreprise ;
+  \item créer un compte MQTT par client et limiter ses topics ;
+  \item créer un token InfluxDB en lecture seule pour Grafana et un token
+        d'écriture distinct pour Node-RED ;
+  \item intégrer Grafana à l'identité d'entreprise si elle est disponible ;
+  \item sauvegarder le volume InfluxDB et tester une restauration sur une machine
+        distincte.
+\end{enumerate}
+
+\section{Politique MQTT}
+
+Litmus Edge doit pouvoir publier dans son espace de topics. Node-RED doit lire
+ces topics et publier uniquement les rejets et son état. Grafana n'a pas besoin
+d'accéder au courtier. Cette séparation réduit les droits de chaque service.
+
+\begin{lstlisting}[caption={Extrait d'ACL MQTT de production}]
+user litmus_edge
+topic write sgx/<site>/#
+
+user node_red
+topic read sgx/<site>/#
+topic write sgx/system/dead-letter
+topic write sgx/system/node-red/status
+\end{lstlisting}
+
+\section{Données et conservation}
+
+Le volume annoncé, inférieur à 200 pièces par heure sur une ligne, reste
+modeste. Le prototype conserve tous les événements et compresse les mesures
+anciennes. L'entreprise n'a pas encore fourni de durée officielle de
+conservation. Cette durée devra être définie avec la qualité et la sécurité des
+systèmes d'information avant la production.
+
+Les sauvegardes doivent couvrir le volume InfluxDB, les volumes Grafana utiles
+et les fichiers de configuration versionnés. Une sauvegarde qui n'a jamais été
+restaurée ne constitue pas une preuve de reprise.

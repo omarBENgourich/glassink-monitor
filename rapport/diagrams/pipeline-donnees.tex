@@ -1,0 +1,37 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=11mm and 13mm]
+  \node[titletext] (title) {Cycle de vie d'une donnée de supervision};
+
+  \node[sourcebox, below=13mm of title, text width=28mm] (litmus)
+    {\textbf{1. Litmus Edge}\\collecte des tags};
+  \node[servicebox, right=of litmus, text width=28mm] (publish)
+    {\textbf{2. Mosquitto}\\message MQTT horodaté};
+  \node[servicebox, right=of publish, text width=28mm] (validate)
+    {\textbf{3. Node-RED}\\validation JSON};
+
+  \node[databox, below=17mm of validate, text width=28mm] (store)
+    {\textbf{4. InfluxDB}\\point horodaté};
+  \node[servicebox, left=of store, text width=28mm] (use)
+    {\textbf{5. Grafana}\\indicateur ou alerte};
+  \node[box, left=of use, text width=28mm] (human)
+    {\textbf{6. Utilisateur}\\décision et action};
+
+  \draw[dataflow] (litmus) -- (publish);
+  \draw[dataflow] (publish) -- (validate);
+  \draw[dataflow] (validate) -- (store);
+  \draw[dataflow] (store) -- (use);
+  \draw[flow] (use) -- (human);
+
+  \node[compactbox, below=18mm of use, draw=sgred, fill=sgred!6,
+        text width=31mm] (reject)
+    {\textbf{Message invalide}\\topic de rejet};
+  \draw[warningflow] (validate.south west) -- ++(-8mm,-8mm) |- (reject.east);
+
+  \node[compactbox, below=18mm of store, draw=sggreen, fill=sggreen!6,
+        text width=31mm] (dedup)
+    {\textbf{Doublon QoS 1}\\même clé, point remplacé};
+  \draw[flow, draw=sggreen] (store) -- (dedup);
+\end{tikzpicture}
+\end{document}

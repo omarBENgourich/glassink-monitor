@@ -1,0 +1,124 @@
+\chapter{Analyse du besoin et cahier des charges}
+
+\section{Situation observée}
+
+La ligne peut produire 24 heures sur 24, cinq jours par semaine. Cela ne veut
+pas dire que l'imprimante doit fonctionner en continu. Son utilisation dépend
+des commandes et de la référence de pare-brise en cours. Pendant une période
+sans demande, une imprimante arrêtée n'est pas en panne. À l'inverse, si un
+verre arrive au poste et que l'imprimante est indisponible, le temps perdu doit
+être enregistré.
+
+Cette différence paraît simple, mais elle change les indicateurs. Une
+disponibilité calculée sur le temps calendaire pénaliserait les périodes sans
+commande. Elle produirait des alertes inutiles, puis les utilisateurs
+finiraient par les ignorer.
+
+\section{Parties prenantes}
+
+\begin{table}[H]
+\centering
+\caption{Attentes des utilisateurs}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}YY}
+\toprule
+Utilisateur & Question principale & Information attendue \\
+\midrule
+Opérateur &
+La machine peut-elle imprimer maintenant ? &
+État, niveau des fluides, défaut actif et volume récent. \\
+Maintenance &
+Pourquoi la machine s'arrête-t-elle et quand intervenir ? &
+Tendances, heures restantes, historique, Pareto des défauts et service à prévoir. \\
+Direction &
+Quel est l'effet sur la production ? &
+Disponibilité liée à la demande, temps d'arrêt, rendement et volume marqué. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Exigences fonctionnelles}
+
+\begin{longtable}{p{0.11\textwidth}p{0.58\textwidth}p{0.20\textwidth}}
+\caption{Exigences fonctionnelles du prototype}\\
+\toprule
+Réf. & Exigence & Critère d'acceptation \\
+\midrule
+\endfirsthead
+\toprule
+Réf. & Exigence & Critère d'acceptation \\
+\midrule
+\endhead
+F01 & Recevoir les mesures et événements par MQTT. &
+Les trois familles de topics sont consommées. \\
+F02 & Afficher l'état courant de l'imprimante. &
+État mis à jour en moins d'une période de publication. \\
+F03 & Suivre les niveaux d'encre et de solvant. &
+Courbes, valeur courante et seuils visibles. \\
+F04 & Estimer le temps avant épuisement. &
+Prévision calculée à partir d'une pente récente. \\
+F05 & Gérer la péremption d'un consommable. &
+Date imprimée et durée après ouverture comparées. \\
+F06 & Distinguer un arrêt réel d'une absence de commande. &
+Le signal de demande conditionne l'indicateur. \\
+F07 & Enregistrer les défauts et leur durée. &
+Historique filtrable et Pareto sur 30 jours. \\
+F08 & Conserver le marquage DMC et son résultat de contrôle. &
+Recherche par DMC et statistiques de qualité possibles. \\
+F09 & Déclencher des alertes. &
+Sept règles provisionnées et un webhook testé. \\
+F10 & Présenter des vues adaptées aux trois publics. &
+Trois tableaux de bord distincts. \\
+\bottomrule
+\end{longtable}
+
+\section{Exigences non fonctionnelles}
+
+\begin{itemize}
+  \item \textbf{Lecture seule :} aucun service du projet n'écrit vers le PLC ou
+        l'imprimante.
+  \item \textbf{Reproductibilité :} l'environnement complet doit démarrer avec
+        Docker Compose.
+  \item \textbf{Traçabilité :} chaque message possède un identifiant unique.
+  \item \textbf{Résistance aux doublons :} une livraison MQTT répétée ne doit
+        pas créer deux mesures ou deux événements.
+  \item \textbf{Observabilité :} chaque service expose un contrôle de santé ou
+        un état visible dans Docker.
+  \item \textbf{Confidentialité :} les mots de passe ne figurent ni dans les
+        flux Node-RED ni dans le fichier Compose.
+  \item \textbf{Évolutivité raisonnable :} l'ajout d'un tag ne doit pas imposer
+        une refonte du modèle de stockage.
+\end{itemize}
+
+\section{Périmètre et hypothèses}
+
+Le périmètre s'arrête à la supervision. Les commandes de production, l'ERP, le
+MES, le réglage de l'imprimante et l'écriture dans les automates sont exclus.
+Le prototype utilise les hypothèses suivantes :
+
+\begin{itemize}
+  \item une seule ligne, avec moins de 200 pare-brise par heure ;
+  \item une imprimante CIJ Markem-Imaje 9450c ;
+  \item un signal \texttt{line\_demanding} indiquant qu'une impression est
+        attendue ;
+  \item une caméra de contrôle fournissant un résultat et un grade ;
+  \item une durée d'utilisation de 90 jours après ouverture pour les fluides.
+\end{itemize}
+
+\begin{warningbox}
+Ces valeurs servent au développement. Le modèle exact de l'imprimante, la
+liste des tags et la durée réelle après ouverture devront être confirmés avec
+la documentation du site avant la mise en service.
+\end{warningbox}
+
+\section{Choix d'un simulateur}
+
+Attendre l'accès au Litmus Edge aurait bloqué toutes les étapes suivantes. Le
+simulateur n'est donc pas un simple générateur de nombres aléatoires. Il
+reproduit les situations qui peuvent tromper la supervision : démarrage,
+préchauffage, production, attente sans commande, jet laissé actif, défaut,
+remplissage, dérive de viscosité et perte temporaire de communication.
+
+Il accélère le temps par un facteur configurable. Une minute réelle peut
+représenter une heure simulée. Les tendances et les alertes deviennent ainsi
+visibles pendant une démonstration, tout en gardant des horodatages réels dans
+la base.

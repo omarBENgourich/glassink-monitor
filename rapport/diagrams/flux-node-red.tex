@@ -1,0 +1,37 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=11mm and 13mm]
+  \node[titletext] (title) {Chaîne d'ingestion Node-RED};
+
+  \node[sourcebox, below=13mm of title, text width=27mm] (litmus)
+    {\textbf{Litmus Edge}\\publication des tags};
+  \node[servicebox, right=of litmus, text width=27mm] (mqtt)
+    {\includegraphics[height=5mm]{../assets/stack/mqtt.pdf}\\[-1mm]
+     \textbf{Mosquitto}\\abonnement QoS 1};
+  \node[servicebox, right=of mqtt, text width=27mm] (json)
+    {\textbf{Node-RED}\\décodage et validation};
+  \node[servicebox, right=of json, text width=29mm] (route)
+    {\textbf{Routage}\\mesure, événement ou marquage};
+
+  \node[databox, below=18mm of route, text width=29mm] (write)
+    {\includegraphics[height=5mm]{../assets/stack/influxdb.pdf}\\[-1mm]
+     \textbf{API InfluxDB v2}\\écriture Line Protocol};
+  \node[databox, left=of write, text width=27mm] (bucket)
+    {\textbf{Bucket}\\historique temporel};
+  \node[compactbox, left=of bucket, draw=sggreen, fill=sggreen!6,
+        text width=27mm] (health)
+    {\textbf{Supervision}\\santé et compteurs};
+  \node[compactbox, left=of health, draw=sgred, fill=sgred!6,
+        text width=27mm] (dead)
+    {\textbf{Rejet contrôlé}\\message + motif};
+
+  \draw[dataflow] (litmus) -- (mqtt);
+  \draw[dataflow] (mqtt) -- (json);
+  \draw[dataflow] (json) -- (route);
+  \draw[dataflow] (route) -- (write);
+  \draw[dataflow] (write) -- (bucket);
+  \draw[flow, draw=sggreen] (bucket) -- (health);
+  \draw[warningflow] (json.south) -- ++(0,-12mm) -| (dead.north);
+\end{tikzpicture}
+\end{document}

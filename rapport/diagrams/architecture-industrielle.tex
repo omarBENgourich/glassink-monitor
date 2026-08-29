@@ -1,0 +1,41 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=12mm and 15mm]
+  \node[titletext] (title) {Architecture fonctionnelle de GlassInk Monitor};
+
+  \node[sourcebox, below=18mm of title, text width=25mm] (printer)
+    {\textbf{Imprimante CIJ}\\mesures et défauts};
+  \node[sourcebox, right=of printer, text width=22mm] (plc)
+    {\textbf{API / PLC}\\demande de la ligne};
+  \node[sourcebox, right=of plc, text width=25mm] (litmus)
+    {\textbf{Litmus Edge}\\collecte des tags};
+  \node[servicebox, right=of litmus, text width=24mm] (mqtt)
+    {\includegraphics[height=5mm]{../assets/stack/eclipsemosquitto.pdf}\\[-1mm]
+     \textbf{Mosquitto}\\transport MQTT};
+
+  \node[servicebox, below=18mm of mqtt, text width=24mm] (nodered)
+    {\includegraphics[height=5mm]{../assets/stack/nodered.pdf}\\[-1mm]
+     \textbf{Node-RED}\\validation};
+  \node[databox, left=of nodered, text width=24mm] (db)
+    {\includegraphics[height=5mm]{../assets/stack/influxdb.pdf}\\[-1mm]
+     \textbf{InfluxDB}\\séries temporelles};
+  \node[servicebox, left=of db, text width=24mm] (grafana)
+    {\includegraphics[height=5mm]{../assets/stack/grafana.pdf}\\[-1mm]
+     \textbf{Grafana}\\vues et alertes};
+  \node[box, left=of grafana, text width=24mm] (users)
+    {\textbf{Utilisateurs}\\exploitation};
+
+  \draw[flow] (printer) -- (plc);
+  \draw[flow] (plc) -- node[labeltext, above]{PROFINET} (litmus);
+  \draw[dataflow] (litmus) -- node[labeltext, above]{publication} (mqtt);
+  \draw[dataflow] (mqtt) -- node[labeltext, right]{QoS 1} (nodered);
+  \draw[dataflow] (nodered) -- (db);
+  \draw[dataflow] (db) -- (grafana);
+  \draw[flow] (grafana) -- (users);
+
+  \node[zonelabel, above=8mm of plc] {Couche industrielle};
+  \node[zonelabel, above=8mm of litmus] {Edge industriel};
+  \node[zonelabel, below=9mm of db] {Plateforme de supervision};
+\end{tikzpicture}
+\end{document}

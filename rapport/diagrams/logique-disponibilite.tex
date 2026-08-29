@@ -1,0 +1,37 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=8mm]
+  \node[titletext] (title) {Qualification de l'état de la ligne};
+  \node[sourcebox, below=11mm of title, text width=43mm] (litmus)
+    {\textbf{Litmus Edge}\\signal de demande};
+  \node[decisionbox, below=12mm of litmus] (demand)
+    {Impression\\demandée ?};
+  \draw[dataflow] (litmus) -- (demand);
+
+  \node[decisionbox, below left=18mm and 28mm of demand] (runningyes)
+    {Imprimante\\en marche ?};
+  \node[decisionbox, below right=18mm and 28mm of demand] (runningno)
+    {Jet\\actif ?};
+  \draw[flow] (demand) -- node[labeltext, above left]{oui} (runningyes);
+  \draw[flow] (demand) -- node[labeltext, above right]{non} (runningno);
+
+  \node[compactbox, below left=15mm and 9mm of runningyes,
+        fill=sggreen!12, draw=sggreen] (prod)
+    {\textbf{Production}\\temps utile};
+  \node[compactbox, below right=15mm and 9mm of runningyes,
+        fill=sgred!10, draw=sgred] (down)
+    {\textbf{Arrêt réel}\\alerte et durée};
+  \node[compactbox, below left=15mm and 9mm of runningno,
+        fill=sgorange!12, draw=sgorange] (idlejet)
+    {\textbf{Attente, jet actif}\\solvant consommé};
+  \node[compactbox, below right=15mm and 9mm of runningno,
+        fill=sgblue!10, draw=sgblue] (idle)
+    {\textbf{Sans commande}\\pas un arrêt};
+
+  \draw[flow] (runningyes) -- node[labeltext, left]{oui} (prod);
+  \draw[warningflow] (runningyes) -- node[labeltext, right]{non} (down);
+  \draw[flow, draw=sgorange] (runningno) -- node[labeltext, left]{oui} (idlejet);
+  \draw[flow, draw=sgblue] (runningno) -- node[labeltext, right]{non} (idle);
+\end{tikzpicture}
+\end{document}

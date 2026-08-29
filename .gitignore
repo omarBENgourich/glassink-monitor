@@ -1,0 +1,51 @@
+# Secrets — never commit
+.env
+*.pem
+*.key
+*.crt
+broker/config/passwd
+broker/config/*.acl
+
+# Runtime data
+data/
+tmp/
+*.log
+
+# LaTeX
+*.aux
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+rapport/rapport.pdf
+rapport/build/*
+!rapport/build/GlassInk-Monitor-Rapport-PFA.pdf
+rapport/diagrams/*.pdf
+rapport/diagrams/*.png
+rapport/diagrams/*-visual-qa.json
+rapport/diagrams/contact-sheet*.png
+rapport/diagrams/review-*/
+
+# Intermediate visual extraction and review files
+rapport/figures/source/
+
+# Python (simulator, notifier)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node.js (Node-RED tooling and report screenshots)
+node_modules/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

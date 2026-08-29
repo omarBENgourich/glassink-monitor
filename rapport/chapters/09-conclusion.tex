@@ -1,0 +1,31 @@
+\chapter{Conclusion générale}
+
+GlassInk Monitor transforme des données industrielles dispersées en une chaîne
+de supervision cohérente. Le prototype reçoit les messages MQTT, les valide
+dans Node-RED, les convertit en Line Protocol, les historise dans InfluxDB et
+les présente dans trois tableaux de bord Grafana. Il suit l'état de l'imprimante,
+les consommables, les défauts et le résultat des marquages.
+
+Le point le plus délicat n'a pas été l'affichage d'une jauge. Il a été de
+définir ce qu'est réellement un arrêt. Sur une ligne qui fonctionne selon les
+commandes, une machine immobile n'est pas forcément indisponible. L'ajout d'un
+signal de demande rend les indicateurs et les alertes crédibles. La comparaison
+entre épuisement et péremption répond au même principe : un pourcentage seul ne
+suffit pas pour décider quand intervenir.
+
+Le recours au simulateur a permis d'avancer sans accès au Litmus Edge. Il a
+fourni des périodes sans commande, des défauts, des remplissages et des pertes
+de communication. Les essais ont validé les doublons MQTT, le journal de rejet,
+la reprise après redémarrage, les 23 requêtes de tableaux de bord et les sept
+règles d'alerte.
+
+Le projet n'est pas encore raccordé à la production. La prochaine étape est
+précise : obtenir un payload Litmus et la liste des tags, confirmer le modèle
+de l'imprimante et les unités, puis remplacer le mapping du simulateur. Cette
+phase devra aussi valider la sécurité du réseau, le TLS, les ACL, les comptes
+Grafana et la sauvegarde.
+
+Ce PFA m'a permis de relier plusieurs domaines de ma formation : réseaux
+industriels, messagerie IoT, bases de données temporelles, conteneurisation et
+supervision. Il m'a surtout appris qu'un indicateur industriel n'est utile que
+si sa définition correspond au fonctionnement réel de la ligne.

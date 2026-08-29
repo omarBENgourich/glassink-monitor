@@ -1,0 +1,16 @@
+apiVersion: 1
+
+providers:
+  - name: 'Supervision de l’imprimante CIJ'
+    orgId: 1
+    folder: 'Imprimante'
+    type: file
+    disableDeletion: false
+    # Dashboards are version-controlled as JSON under dashboards/definitions/.
+    # allowUiUpdates lets you edit in the browser while building; export the
+    # JSON back to the repo before committing, or the change is lost on restart.
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

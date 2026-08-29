@@ -1,0 +1,199 @@
+\chapter{Conception de la solution}
+
+\section{Architecture générale}
+
+L'architecture sépare la collecte industrielle, le transport, le traitement,
+le stockage et la visualisation. Cette séparation facilite les essais et
+permet de remplacer le simulateur par Litmus Edge sans réécrire les tableaux
+de bord.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{architecture-industrielle.pdf}
+  \caption{Architecture fonctionnelle de GlassInk Monitor}
+  \label{fig:architecture}
+\end{figure}
+
+Le PLC et l'imprimante appartiennent à la couche de contrôle existante.
+Litmus Edge fournit le point d'intégration. Mosquitto transporte les messages.
+Node-RED vérifie leur structure, les convertit en Line Protocol et les écrit
+dans InfluxDB. Grafana interroge ensuite le bucket de supervision.
+
+\section{Choix de la pile technique}
+
+\begin{center}
+  \stackicon{python.pdf}{Python\\simulateur}
+  \hfill
+  \stackicon{eclipsemosquitto.pdf}{Mosquitto\\MQTT}
+  \hfill
+  \stackicon{nodered.pdf}{Node-RED\\ingestion}
+  \hfill
+  \stackicon{influxdb.pdf}{InfluxDB\\stockage}
+  \hfill
+  \stackicon{grafana.pdf}{Grafana\\supervision}
+  \hfill
+  \stackicon{docker.pdf}{Docker\\déploiement}
+\end{center}
+
+\subsection{MQTT et Mosquitto}
+
+MQTT suit le modèle publication/abonnement. Le producteur publie sur un topic,
+le courtier distribue le message et les consommateurs s'abonnent aux topics
+utiles. Mosquitto a été retenu parce que le volume du projet reste faible et
+qu'il fournit les fonctions nécessaires : authentification, ACL, TLS,
+persistance et outils de test~\cite{mosquitto}.
+
+Le prototype utilise le QoS 1. Ce niveau garantit une livraison ``au moins une
+fois''~\cite{mqtt5}. Il améliore la fiabilité, mais autorise un doublon lors
+d'une retransmission. L'application doit donc être idempotente.
+
+\subsection{Node-RED}
+
+Node-RED rend le chemin des données visible dans un éditeur. Ce choix est
+adapté au passage du simulateur vers Litmus Edge : le mapping peut être
+inspecté et modifié sans cacher le traitement dans un service opaque. Les flux
+restent versionnés dans \texttt{flows.json}. L'éditeur est authentifié et les
+connexions utilisent les variables d'environnement~\cite{nodered}.
+
+\subsection{InfluxDB}
+
+La plateforme produit surtout des données horodatées : mesures continues,
+changements d'état, défauts et résultats de marquage. InfluxDB 2.7 les conserve
+dans le bucket \texttt{printer\_monitoring}. Trois mesures structurent le
+contenu : \texttt{printer\_telemetry}, \texttt{printer\_event} et
+\texttt{marking\_event}. Les identifiants utilisés pour filtrer deviennent des
+tags ; les valeurs numériques et descriptives restent des champs
+~\cite{influxschema}.
+
+\subsection{Grafana}
+
+Grafana interroge nativement InfluxDB. Il affiche les séries temporelles, les
+tableaux et les indicateurs calculés avec Flux. Les règles d'alerte réutilisent
+les mêmes données~\cite{grafanainflux}. Les tableaux de bord et
+la source de données sont provisionnés par fichiers, ce qui évite une
+configuration manuelle lors d'une nouvelle installation.
+
+\subsection{Docker Compose}
+
+Chaque composant tourne dans son conteneur. Le fichier Compose décrit les
+services, leurs réseaux, leurs volumes, leurs variables et leurs contrôles de
+santé. Cette approche reproduit le même environnement sur un poste de
+développement et sur une VM de démonstration~\cite{dockercompose}.
+
+\section{Cycle de vie des données}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{pipeline-donnees.pdf}
+  \caption{Traitement d'une mesure entre la machine et le tableau de bord}
+  \label{fig:pipeline}
+\end{figure}
+
+Chaque message reçoit un \texttt{message\_id}. Node-RED contrôle les champs
+obligatoires, construit un point InfluxDB puis l'envoie à l'API d'écriture v2.
+La clé d'un point associe la mesure, son jeu de tags et son horodatage. Une
+retransmission strictement identique réécrit donc le même point au lieu d'en
+créer un second~\cite{influxduplicate}. Cette propriété couvre les doublons
+attendus avec le QoS~1. L'écriture de plusieurs mesures n'est toutefois pas une
+transaction globale ; en cas d'échec partiel, Node-RED rejoue les points avec
+les mêmes clés.
+
+\section{Topics MQTT}
+
+\begin{table}[H]
+\centering
+\caption{Arborescence MQTT du prototype}
+\begin{tabularx}{\textwidth}{p{0.27\textwidth}Y}
+\toprule
+Type & Topic \\
+\midrule
+Télémétrie &
+\texttt{sgx/<site>/<ligne>/printer/<id>/telemetry} \\
+Événement &
+\texttt{sgx/<site>/<ligne>/printer/<id>/event} \\
+Marquage &
+\texttt{sgx/<site>/<ligne>/printer/<id>/marking} \\
+Rejet &
+\texttt{sgx/system/dead-letter} \\
+État Node-RED &
+\texttt{sgx/system/node-red/status} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Lors du raccordement réel, Litmus Edge pourra publier du JSON dans cette
+arborescence ou utiliser Sparkplug B. Dans le second cas, un nœud de décodage
+protobuf sera ajouté avant la validation ; le stockage et les tableaux de bord
+ne changeront pas.
+
+\section{Modèle de données}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.93\textwidth]{modele-donnees.pdf}
+  \caption{Organisation des données dans le bucket InfluxDB}
+  \label{fig:model}
+\end{figure}
+
+La mesure \texttt{printer\_telemetry} regroupe les valeurs continues sous forme
+de champs : niveau d'encre, niveau de solvant, viscosité, températures,
+pression et compteurs. \texttt{printer\_event} conserve les changements d'état,
+les défauts et les remplissages. \texttt{marking\_event} contient le DMC, le
+résultat du contrôle et le grade de lecture. Les tags \texttt{printer\_id},
+\texttt{line\_id}, \texttt{event\_type} et \texttt{verify\_grade} permettent les
+filtres courants sans transformer chaque valeur numérique en série indexée.
+Node-RED ajoute aussi le tag \texttt{classification} et les champs dérivés
+\texttt{hours\_to\_empty}, \texttt{action\_days} et
+\texttt{expiry\_limited} pour chaque fluide.
+
+\section{Disponibilité liée à la demande}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{logique-disponibilite.pdf}
+  \caption{Distinction entre production, arrêt et attente normale}
+  \label{fig:demand}
+\end{figure}
+
+La disponibilité est calculée sur les échantillons où la ligne demande une
+impression :
+
+\begin{equation}
+A = \frac{N_{\text{demande et marche}}}
+         {N_{\text{demande}}}\times 100
+\end{equation}
+
+Une période sans commande n'entre ni au numérateur ni au dénominateur. Si le
+flux réel est publié à intervalle fixe, ce comptage approche correctement le
+temps. Si Litmus publie uniquement lors d'un changement, il faudra reconstruire
+des intervalles et pondérer par leur durée.
+
+\section{Prévision et péremption}
+
+Node-RED estime la consommation à partir de deux niveaux successifs. Pour
+limiter l'effet du bruit, le débit observé est lissé avec le débit précédent :
+
+\begin{equation}
+r_k = 0{,}75\,r_{k-1} + 0{,}25\,
+      \frac{L_{k-1}-L_k}{t_k-t_{k-1}}
+\end{equation}
+
+Pour un débit $r_k$ exprimé en points de pourcentage par heure et un niveau
+courant $L_k$, le temps avant épuisement vaut :
+
+\begin{equation}
+T_{\text{vide}} = \frac{L_k}{r_k}
+\end{equation}
+
+La date d'action n'est pas forcément déterminée par ce calcul. Un fluide ouvert
+peut expirer avant d'être vide. La date effective est :
+
+\begin{equation}
+D_{\text{effective}} =
+\min\left(D_{\text{imprimée}},
+D_{\text{ouverture}} + N_{\text{jours après ouverture}}\right)
+\end{equation}
+
+Une hausse supérieure à cinq points indique un remplissage et réinitialise
+l'estimation. Le tableau de maintenance affiche les deux échéances et retient
+celle qui arrive en premier.

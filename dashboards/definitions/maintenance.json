@@ -1,0 +1,414 @@
+{
+  "uid": "printer-maintenance",
+  "title": "Imprimante — Maintenance",
+  "tags": [
+    "imprimante",
+    "maintenance"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "30s",
+  "editable": true,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Consommables — deux échéances",
+      "description": "Compare l’épuisement et l’expiration. « Facteur limitant » indique l’échéance prioritaire ; « agir dans » pilote les alertes.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "agir_dans_j"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 2
+                    },
+                    {
+                      "color": "green",
+                      "value": 14
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "perte_estimée_%"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "base = from(bucket: \"printer_monitoring\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"ink_level\" or r._field == \"ink_hours_to_empty\" or r._field == \"ink_days_to_expiry\" or r._field == \"ink_action_days\" or r._field == \"ink_expiry_limited\" or r._field == \"solvent_level\" or r._field == \"solvent_hours_to_empty\" or r._field == \"solvent_days_to_expiry\" or r._field == \"solvent_action_days\" or r._field == \"solvent_expiry_limited\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> last()\n  |> pivot(rowKey: [\"printer_id\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nink = base |> map(fn: (r) => ({Consommable: \"Encre\", Niveau_pct: r.ink_level, Heures_avant_vide: r.ink_hours_to_empty, Jours_avant_expiration: r.ink_days_to_expiry, Facteur_limitant: if r.ink_expiry_limited == 1.0 then \"Expiration\" else \"Consommation\", Agir_dans_j: r.ink_action_days}))\nsolvent = base |> map(fn: (r) => ({Consommable: \"Solvant\", Niveau_pct: r.solvent_level, Heures_avant_vide: r.solvent_hours_to_empty, Jours_avant_expiration: r.solvent_days_to_expiry, Facteur_limitant: if r.solvent_expiry_limited == 1.0 then \"Expiration\" else \"Consommation\", Agir_dans_j: r.solvent_action_days}))\nunion(tables: [ink, solvent])\n  |> group()\n  |> rename(columns: {Niveau_pct: \"Niveau (%)\", Heures_avant_vide: \"Heures avant vide\", Jours_avant_expiration: \"Jours avant expiration\", Facteur_limitant: \"Facteur limitant\", Agir_dans_j: \"Agir dans (j)\"})",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Niveaux des consommables",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"ink_level\" or r._field == \"solvent_level\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: if r._field == \"ink_level\" then \"Encre\" else \"Solvant\"}))",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Viscosité de l’encre par rapport à la consigne",
+      "description": "Consigne : 4,2 ; plage acceptable : ±0,3. La viscosité dérive avant que la qualité d’impression ne baisse visiblement.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Viscosité",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 4.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"ink_viscosity\") |> group() |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Pression et température de la tête d’impression",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"head_pressure\" or r._field == \"head_temperature\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: if r._field == \"head_pressure\" then \"Pression de tête\" else \"Température de tête\"}))",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Durée de service restante",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.labels._field}",
+          "unit": "suffix: h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "green",
+                "value": 400
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"filter_hours_remaining\" or r._field == \"jet_run_hours\" or r._field == \"pump_run_hours\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> last()\n  |> map(fn: (r) => ({r with _field: if r._field == \"filter_hours_remaining\" then \"Filtre restant\" else if r._field == \"jet_run_hours\" then \"Fonctionnement du jet\" else \"Fonctionnement de la pompe\"}))",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Défauts récents",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"fault\" and (r._field == \"description\" or r._field == \"duration_s\" or r._field == \"message_id\"))\n  |> pivot(rowKey: [\"_time\", \"code\", \"demanding\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"_time\", \"code\", \"description\", \"demanding\", \"duration_s\"])\n  |> rename(columns: {_time: \"Date\", code: \"Code\", description: \"Description\", demanding: \"Ligne en production\", duration_s: \"Durée (s)\"})\nfallback = array.from(rows: [{Date: time(v: 0), Code: \"-\", Description: \"Aucun défaut enregistré\", \"Ligne en production\": \"-\", \"Durée (s)\": 0.0}])\nunion(tables: [fallback, real])\n  |> group()\n  |> sort(columns: [\"Date\"], desc: true)\n  |> limit(n: 50)",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Pareto des défauts — temps perdu sur 30 jours",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"fault\" and r._field == \"duration_s\")\n  |> group(columns: [\"code\"])\n  |> sum()\n  |> map(fn: (r) => ({r with cause: if r.code == \"E-042\" then \"Pression d’encre hors plage\" else if r.code == \"E-051\" then \"Viscosité de l’encre hors plage\" else if r.code == \"E-073\" then \"Buse partiellement obstruée\" else if r.code == \"E-088\" then \"Défaut de gouttière\" else if r.code == \"E-067\" then \"Capot ouvert\" else if r.code == \"E-095\" then \"Déclenchement manqué\" else r.code}))\n  |> group()\n  |> keep(columns: [\"cause\", \"_value\"])\nfallback = array.from(rows: [{cause: \"Aucun défaut enregistré\", _value: 0.0}])\nunion(tables: [fallback, real])\n  |> group()\n  |> rename(columns: {_value: \"secondes perdues\"})",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Historique des consommables",
+      "description": "Chaque lot installé et son état final. Des lots remplacés encore pleins indiquent une cadence de commande inadaptée.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: -365d)\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"refill\" and (r._field == \"message_id\" or r._field == \"expires_on\" or r._field == \"opened_on\" or r._field == \"manufactured_on\" or r._field == \"volume_ml\"))\n  |> pivot(rowKey: [\"_time\", \"consumable_type\", \"batch_code\", \"part_number\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({r with consumable_type: if r.consumable_type == \"ink\" then \"Encre\" else \"Solvant\"}))\n  |> keep(columns: [\"_time\", \"consumable_type\", \"batch_code\", \"part_number\", \"opened_on\", \"expires_on\", \"volume_ml\"])\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 30)\n  |> rename(columns: {_time: \"Installé le\", consumable_type: \"Consommable\", batch_code: \"Lot\", part_number: \"Référence\", opened_on: \"Ouvert le\", expires_on: \"Expire le\", volume_ml: \"Volume (ml)\"})",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    }
+  ]
+}

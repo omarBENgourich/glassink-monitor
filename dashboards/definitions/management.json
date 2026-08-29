@@ -1,0 +1,429 @@
+{
+  "uid": "printer-management",
+  "title": "Imprimante — Direction",
+  "tags": [
+    "imprimante",
+    "direction"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "1m",
+  "editable": true,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Disponibilité aujourd’hui",
+      "description": "Temps de production divisé par le temps où la ligne demandait réellement des impressions. Les périodes sans commande sont exclues.",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Disponibilité",
+          "unit": "percent",
+          "decimals": 1,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "NON CALCULÉE",
+                  "color": "gray",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"date\"\nfrom(bucket: \"printer_monitoring\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"printer_state_code\" and (r.classification == \"producing\" or r.classification == \"downtime\"))\n  |> map(fn: (r) => ({r with _value: if r.classification == \"producing\" then 100.0 else 0.0}))\n  |> group() |> mean()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Pare-brise marqués aujourd’hui",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"date\"\nfrom(bucket: \"printer_monitoring\") |> range(start: date.truncate(t: now(), unit: 1d)) |> filter(fn: (r) => r._measurement == \"marking_event\" and r._field == \"message_id\") |> group() |> count()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rendement au premier passage",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "NON CALCULÉ",
+                  "color": "gray",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 97
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"date\"\nfrom(bucket: \"printer_monitoring\") |> range(start: date.truncate(t: now(), unit: 1d)) |> filter(fn: (r) => r._measurement == \"marking_event\" and r._field == \"verify_ok\") |> map(fn: (r) => ({r with _value: if r._value then 100.0 else 0.0})) |> group() |> mean()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Temps d’arrêt aujourd’hui",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nimport \"date\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"fault\" and r.demanding == \"true\" and r._field == \"duration_s\")\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))\nfallback = array.from(rows: [{_time: now(), _value: 0.0}])\nunion(tables: [fallback, real]) |> group() |> sum()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Disponibilité par jour",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Disponibilité",
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"printer_state_code\" and (r.classification == \"producing\" or r.classification == \"downtime\"))\n  |> map(fn: (r) => ({r with _value: if r.classification == \"producing\" then 100.0 else 0.0}))\n  |> group(columns: [\"printer_id\"])\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> set(key: \"_field\", value: \"Disponibilité\")",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "piechart",
+      "title": "Répartition du temps",
+      "description": "Une attente sans commande n’est pas un arrêt. Le signal de demande permet de distinguer ces situations.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.labels._field}",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and r._field == \"printer_state_code\")\n  |> group(columns: [\"classification\"])\n  |> count()\n  |> map(fn: (r) => ({_time: now(), _field: if r.classification == \"producing\" then \"Production\" else if r.classification == \"downtime\" then \"Arrêt\" else if r.classification == \"idle_jet_on\" then \"Attente, jet actif\" else \"Sans commande\", _value: float(v: r._value)}))\n  |> group(columns: [\"_field\"])",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Principales causes d’arrêt",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "import \"array\"\nreal = from(bucket: \"printer_monitoring\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"printer_event\" and r.event_type == \"fault\" and r._field == \"duration_s\")\n  |> group(columns: [\"code\"])\n  |> sum()\n  |> map(fn: (r) => ({Cause: if r.code == \"E-042\" then \"Pression d’encre hors plage\" else if r.code == \"E-051\" then \"Viscosité de l’encre hors plage\" else if r.code == \"E-073\" then \"Buse partiellement obstruée\" else if r.code == \"E-088\" then \"Défaut de gouttière\" else if r.code == \"E-067\" then \"Capot ouvert\" else if r.code == \"E-095\" then \"Déclenchement manqué\" else r.code, Secondes: r._value}))\n  |> group()\nfallback = array.from(rows: [{Cause: \"Aucun défaut enregistré\", Secondes: 0.0}])\nunion(tables: [fallback, real]) |> group()",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Grades de vérification du DMC",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.labels._field}",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"marking_event\" and r._field == \"message_id\")\n  |> group(columns: [\"verify_grade\"])\n  |> aggregateWindow(every: 15m, fn: count, createEmpty: false)\n  |> map(fn: (r) => ({r with _field: r.verify_grade}))\n  |> group(columns: [\"_field\"])",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    }
+  ]
+}

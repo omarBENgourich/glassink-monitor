@@ -1,0 +1,14 @@
+apiVersion: 1
+
+# A single webhook. The notifier service decides where alerts actually go, so
+# swapping Telegram for Teams later does not touch any alert rule.
+contactPoints:
+  - orgId: 1
+    name: notifier
+    receivers:
+      - uid: notifier-webhook
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: http://notifier:8080/webhook
+          httpMethod: POST

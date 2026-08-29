@@ -1,0 +1,204 @@
+name: sg-printer-monitoring
+
+# CIJ printer monitoring platform.
+# Phase 1 services (broker, InfluxDB, Grafana) start by default.
+# Later-phase workers are behind profiles so they do not start until built:
+#   docker compose --profile phase2 up -d   # simulator
+#   docker compose --profile phase3 up -d   # ingestion
+#   docker compose --profile phase4 up -d   # notifier
+
+services:
+
+  # ---------------------------------------------------------------- broker --
+  broker:
+    image: eclipse-mosquitto:2.0
+    container_name: sg-broker
+    restart: unless-stopped
+    ports:
+      # Bound to loopback on purpose. See broker/README.md before changing.
+      - "127.0.0.1:${MQTT_PORT:-1883}:1883"
+      - "127.0.0.1:${MQTT_WS_PORT:-9001}:9001"
+    volumes:
+      - ./broker/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - broker_data:/mosquitto/data
+      - broker_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks: [platform]
+
+  # --------------------------------------------------------------- storage --
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: sg-influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USERNAME:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:?set INFLUXDB_PASSWORD in .env}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-saint-gobain}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-printer_monitoring}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUXDB_RETENTION:-0}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:?set INFLUXDB_TOKEN in .env}
+      TZ: ${TZ:-Africa/Casablanca}
+    ports:
+      - "127.0.0.1:${INFLUXDB_PORT:-8086}:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping", "--host", "http://localhost:8086"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [platform]
+
+  # ------------------------------------------------------------ dashboards --
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: sg-grafana
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_DEFAULT_LANGUAGE: fr-FR
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-saint-gobain}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-printer_monitoring}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      TZ: ${TZ:-Africa/Casablanca}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./dashboards/provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards/definitions:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/health | grep -q '\"database\": \"ok\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [platform]
+
+  # ------------------------------------------------- simulator  (phase 2) --
+  simulator:
+    profiles: ["phase2"]
+    build: ./simulator
+    container_name: sg-simulator
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_healthy
+    environment:
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      SITE_ID: ${SITE_ID:-SaintGobain_SiteX}
+      LINE_ID: ${LINE_ID:-L1}
+      PRINTER_ID: ${PRINTER_ID:-CIJ_Printer_L1}
+      PRINTER_VENDOR: ${PRINTER_VENDOR:-Markem-Imaje}
+      PRINTER_MODEL: ${PRINTER_MODEL:-9450c}
+      EXTERNAL_CARTRIDGE_ML: ${EXTERNAL_CARTRIDGE_ML:-800}
+      INTERNAL_TANK_ML: ${INTERNAL_TANK_ML:-1075}
+      INTERNAL_TANK_FULL_MM: ${INTERNAL_TANK_FULL_MM:-100}
+      INTERNAL_RESERVE_HOURS: ${INTERNAL_RESERVE_HOURS:-24}
+      MOTOR_SPEED_RPM: ${MOTOR_SPEED_RPM:-3000}
+      PUBLISH_INTERVAL_S: ${PUBLISH_INTERVAL_S:-5}
+      # 60 = one real minute is one simulated hour. Without this a demo shows
+      # nothing: ink drains at 0.8 %/hour.
+      TIME_ACCEL: ${TIME_ACCEL:-60}
+      TZ: ${TZ:-Africa/Casablanca}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('broker', 1883), 3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [platform]
+
+  # ----------------------------------------------- Node-RED ingestion (3) --
+  node-red:
+    profiles: ["phase3"]
+    build: ./ingestion
+    container_name: sg-node-red
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    environment:
+      MQTT_HOST: broker
+      MQTT_PORT: 1883
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_ORG: ${INFLUXDB_ORG:-saint-gobain}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET:-printer_monitoring}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      NODE_RED_ADMIN_USER: ${NODE_RED_ADMIN_USER:-admin}
+      NODE_RED_ADMIN_PASSWORD: ${NODE_RED_ADMIN_PASSWORD:?set NODE_RED_ADMIN_PASSWORD in .env}
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:?set NODE_RED_CREDENTIAL_SECRET in .env}
+      NODE_RED_LOG_LEVEL: ${NODE_RED_LOG_LEVEL:-info}
+      FLOWS: flows.json
+      PORT: 1880
+      TZ: ${TZ:-Africa/Casablanca}
+    ports:
+      - "127.0.0.1:${NODE_RED_PORT:-1880}:1880"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:1880/health | grep -q '\"status\":\"ok\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [platform]
+
+  # -------------------------------------------------- notifier  (phase 4) --
+  notifier:
+    profiles: ["phase4"]
+    build: ./notifier
+    container_name: sg-notifier
+    restart: unless-stopped
+    environment:
+      NOTIFIER_PORT: 8080
+      NOTIFY_CHANNELS: ${NOTIFY_CHANNELS:-console}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TO: ${SMTP_TO:-}
+      TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
+      # open-wa bridge. Demo only — see notifier/README.md before enabling.
+      OPENWA_URL: ${OPENWA_URL:-}
+      OPENWA_CHAT_ID: ${OPENWA_CHAT_ID:-}
+      OPENWA_API_KEY: ${OPENWA_API_KEY:-}
+      TZ: ${TZ:-Africa/Casablanca}
+    ports:
+      - "127.0.0.1:${NOTIFIER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [platform]
+
+networks:
+  platform:
+    driver: bridge
+
+volumes:
+  broker_data:
+  broker_log:
+  influxdb_data:
+  influxdb_config:
+  grafana_data:

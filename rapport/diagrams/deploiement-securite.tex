@@ -1,0 +1,37 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram-style.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=12mm and 17mm]
+  \node[titletext] (title) {Déploiement et limites réseau};
+
+  \node[sourcebox, below=13mm of title, text width=32mm, draw=sgred] (ot)
+    {\textbf{Réseau industriel}\\PLC, imprimante, PROFINET};
+  \node[sourcebox, right=of ot, text width=30mm] (edge)
+    {\textbf{Litmus Edge}\\lecture seule et publication};
+  \node[servicebox, right=of edge, text width=32mm] (host)
+    {\includegraphics[height=5mm]{../assets/stack/docker.pdf}\\[-1mm]
+     \textbf{Hôte Docker}\\plateforme de supervision};
+
+  \draw[dataflow] (ot) -- (edge);
+  \draw[dataflow] (edge) -- node[labeltext, above]{MQTT + TLS} (host);
+
+  \node[compactbox, below=18mm of host, text width=25mm] (mqtt)
+    {Mosquitto\\ACL};
+  \node[compactbox, left=of mqtt, text width=25mm] (nr)
+    {Node-RED\\authentifié};
+  \node[compactbox, right=of mqtt, text width=25mm] (db)
+    {InfluxDB\\tokens séparés};
+  \node[compactbox, below=11mm of mqtt, text width=25mm] (graf)
+    {Grafana\\rôles};
+
+  \draw[flow] (host) -- (mqtt);
+  \draw[flow] (host) -- (nr);
+  \draw[flow] (host) -- (db);
+  \draw[flow] (host) -- (graf);
+
+  \node[compactbox, below=18mm of ot, text width=43mm,
+        fill=sgred!8, draw=sgred] (rec)
+    {\textbf{Protection requise}\\segmentation, filtrage, TLS et sauvegardes};
+  \draw[warningflow] (ot) -- (rec);
+\end{tikzpicture}
+\end{document}

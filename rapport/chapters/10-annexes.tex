@@ -1,0 +1,67 @@
+\chapter{Contrats de messages}
+
+\section{Exemple de télémétrie}
+
+\begin{lstlisting}[language={},caption={Payload de télémétrie publié par le simulateur}]
+{
+  "message_id": "4efc62a318f84e36bb78cc1341a88b3d",
+  "ts": 1785445200000,
+  "printer_id": "CIJ_Printer_L1",
+  "line_id": "L1",
+  "metrics": {
+    "printer_state_code": 2,
+    "jet_status_code": 7,
+    "printing_status_code": 1,
+    "jet_running": 1,
+    "line_demanding": 1,
+    "ink_level": 74.1,
+    "solvent_level": 57.3,
+    "ink_viscosity": 4.19,
+    "head_pressure": 3.02,
+    "head_temperature": 38.4,
+    "motor_speed_rpm": 2998.0,
+    "pressure_10mbar": 302,
+    "viscosity_tenth_second": 42,
+    "print_count": 184215
+  }
+}
+\end{lstlisting}
+
+\section{Exemple d'événement de remplissage}
+
+\begin{lstlisting}[language={},caption={Payload créant un nouveau lot de solvant}]
+{
+  "message_id": "a72ba6534dc84b1a95ff5d182d653458",
+  "ts": 1785445200000,
+  "printer_id": "CIJ_Printer_L1",
+  "event_type": "refill",
+  "consumable_type": "solvent",
+  "part_number": "MI-9876-S",
+  "batch_code": "LOT-B12",
+  "manufactured_on": "2026-01-15",
+  "expires_on": "2027-01-15",
+  "opened_on": "2026-07-30",
+  "shelf_life_after_open_days": 90,
+  "volume_ml": 800
+}
+\end{lstlisting}
+
+\chapter{Commandes d'exploitation}
+
+\begin{table}[H]
+\centering
+\caption{Commandes principales du prototype}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}Y}
+\toprule
+Commande & Effet \\
+\midrule
+\texttt{make demo} & Construit et démarre les six services. \\
+\texttt{make ps} & Affiche l'état et la santé des conteneurs. \\
+\texttt{make logs} & Suit les journaux des services. \\
+\texttt{make verify} & Exécute les tests et les contrôles d'acceptation. \\
+\texttt{make influx} & Ouvre les informations et outils de contrôle InfluxDB. \\
+\texttt{make mqtt-sub} & Affiche les messages de tous les topics. \\
+\texttt{make down} & Arrête la plateforme sans supprimer les données. \\
+\bottomrule
+\end{tabularx}
+\end{table}

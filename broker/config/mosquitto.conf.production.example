@@ -1,0 +1,61 @@
+# Mosquitto — PRODUCTION configuration template
+#
+# Implements the non-negotiables from README.md §10:
+#   - TLS only, no plaintext listener
+#   - no anonymous access, per-client credentials
+#   - ACLs: Litmus Edge publishes only under its own prefix; consumers read only
+#
+# Setup:
+#   1. Place certificates in broker/config/certs/ (git-ignored).
+#   2. Create the password file:
+#        docker compose exec broker mosquitto_passwd -c /mosquitto/config/passwd litmus_edge
+#        docker compose exec broker mosquitto_passwd    /mosquitto/config/passwd telegraf
+#        docker compose exec broker mosquitto_passwd    /mosquitto/config/passwd grafana
+#   3. Copy this file over mosquitto.conf and restart.
+
+persistence true
+persistence_location /mosquitto/data/
+
+log_dest stdout
+log_type error
+log_type warning
+log_type notice
+
+# --- TLS listener, the only one -----------------------------------------------
+listener 8883
+protocol mqtt
+
+cafile   /mosquitto/config/certs/ca.crt
+certfile /mosquitto/config/certs/server.crt
+keyfile  /mosquitto/config/certs/server.key
+
+tls_version tlsv1.2
+require_certificate false
+
+# --- authentication -----------------------------------------------------------
+allow_anonymous false
+password_file /mosquitto/config/passwd
+acl_file /mosquitto/config/mosquitto.acl
+
+max_queued_messages 10000
+message_size_limit 1048576
+
+# --- mosquitto.acl contents ---------------------------------------------------
+# Litmus Edge: publish only, and only under its own namespace.
+#
+#   user litmus_edge
+#   topic write spBv1.0/#
+#   topic write sgx/#
+#
+# Node-RED: subscribes to source topics and publishes only dead letters/status.
+#
+#   user node_red
+#   topic read spBv1.0/#
+#   topic read sgx/#
+#   topic write sgx/system/dead-letter
+#   topic write sgx/system/node-red/status
+#
+# Grafana: subscribe only.
+#
+#   user grafana
+#   topic read sgx/#

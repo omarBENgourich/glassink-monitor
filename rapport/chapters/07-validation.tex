@@ -1,0 +1,110 @@
+\chapter{Validation du prototype}
+
+\section{Stratégie de test}
+
+La validation combine des tests unitaires et des essais sur la plateforme
+complète. Les tests unitaires vérifient les règles du simulateur et le format
+des notifications. Les essais d'intégration publient de vrais messages dans
+Mosquitto, passent par Node-RED et contrôlent les points écrits dans InfluxDB.
+Enfin, les requêtes Flux de chaque panneau sont exécutées par l'API de Grafana.
+
+\section{Tests unitaires}
+
+Douze tests automatisés sont présents :
+
+\begin{itemize}
+  \item huit tests du simulateur : identité des messages, date effective de
+        péremption, consommation en attente, capacités des fluides, codes et
+        paramètres 94xx, débit de marquage et absence de marquage sans demande ;
+  \item quatre tests du notifier : format d'une alerte active, regroupement,
+        résolution et protection contre un template Grafana non résolu.
+\end{itemize}
+
+La commande \texttt{make verify} exécute ces tests, vérifie la syntaxe Compose,
+le JSON des flux Node-RED et les fichiers des tableaux de bord.
+
+\section{Essais d'intégration}
+
+\begin{table}[H]
+\centering
+\caption{Résultats des essais de bout en bout}
+\begin{tabularx}{\textwidth}{p{0.31\textwidth}Yp{0.16\textwidth}}
+\toprule
+Essai & Observation & Résultat \\
+\midrule
+Publication simulée &
+Télémétrie, événements et marquages présents dans le bucket. &
+Conforme \\
+Message QoS 1 publié deux fois &
+Le nombre de points reste inchangé après la retransmission exacte. &
+Conforme \\
+Payload sans \texttt{message\_id} &
+Message reçu sur \texttt{sgx/system/dead-letter} avec le motif. &
+Conforme \\
+Redémarrage Node-RED &
+Reconnexion MQTT puis reprise des écritures. &
+Conforme \\
+Authentification Node-RED &
+\texttt{/flows} renvoie HTTP 401 sans session ; les quatre onglets sont
+accessibles après connexion. &
+Conforme \\
+Source Grafana &
+Connexion InfluxDB déclarée saine et bucket accessible. &
+Conforme \\
+Tableaux de bord &
+23 requêtes de panneaux exécutées avec succès. &
+Conforme \\
+Alertes &
+Sept règles chargées depuis les fichiers de provisioning. &
+Conforme \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{resultbox}
+Au terme des essais, les six conteneurs étaient déclarés sains. Les trois
+mesures InfluxDB contenaient des points issus du simulateur, et la répétition
+d'un message conservait le même résultat. Le prototype valide donc la chaîne
+simulateur--MQTT--Node-RED--InfluxDB--Grafana.
+\end{resultbox}
+
+\section{Cas de la disponibilité}
+
+Le simulateur alterne les périodes de commande et les périodes vides. Les
+échantillons sont classés dans quatre catégories : production, arrêt réel,
+attente avec jet actif et absence de commande. Le tableau de bord ne compte
+que la deuxième catégorie comme arrêt.
+
+Cet essai a révélé une limite connue. La requête quotidienne compte des
+échantillons et suppose une publication périodique. Ce calcul est correct pour
+le simulateur. Si Litmus Edge publie seulement lors d'un changement de valeur,
+les états longs et courts auraient le même poids. La validation sur site devra
+donc vérifier le mode de publication.
+
+\section{Cas des consommables}
+
+Le lot de solvant initial est ouvert depuis 85 jours, avec une durée
+configurée de 90 jours après ouverture. Sa date imprimée est plus éloignée,
+mais la requête calcule cinq jours restants. Ce scénario vérifie que la plateforme
+retient la première échéance.
+
+Les remplissages produisent un saut de niveau. Lorsque la hausse dépasse cinq
+points, Node-RED réinitialise le débit estimé. Le délai avant épuisement reste
+alors vide jusqu'à la réception d'une nouvelle baisse mesurable, au lieu
+d'afficher une prévision négative ou héritée de l'ancienne cartouche.
+
+Les tests de conformité 94xx contrôlent aussi la capacité de 800~mL des
+cartouches externes, la capacité de 1,075~L des réservoirs internes et les codes
+du jet. Un état \texttt{running} avec demande produit ainsi un code jet 7 et un
+état d'impression 1, tandis que la phase de démarrage produit le code jet 1.
+
+\section{Limites de la validation}
+
+Le prototype ne prouve pas encore la compatibilité avec les tags réels de
+l'imprimante. Il ne mesure pas non plus la latence du réseau industriel ni la
+qualité d'un payload Sparkplug B fourni par le site. Les défauts simulés sont
+plausibles, mais leurs codes ne remplacent pas le manuel du modèle installé.
+
+Ces limites ne remettent pas en cause les composants en aval. Elles définissent
+le travail de raccordement : capturer un payload réel, établir la table de
+mapping, vérifier les unités et rejouer les tests d'acceptation.

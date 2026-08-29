@@ -1,0 +1,11 @@
+{
+  "name": "glassink-report-screenshots",
+  "private": true,
+  "scripts": {
+    "capture:grafana": "node capture-grafana.js",
+    "capture:node-red": "node capture-node-red.js"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}

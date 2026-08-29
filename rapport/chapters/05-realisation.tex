@@ -1,0 +1,176 @@
+\chapter{Réalisation de la plateforme}
+
+\section{Organisation du projet}
+
+Le dépôt est organisé par service. Chaque dossier contient sa configuration,
+son code et un fichier README.
+
+\begin{lstlisting}[language=bash,caption={Organisation des principaux composants}]
+.
+|-- broker/        # Eclipse Mosquitto
+|-- dashboards/    # provisioning et tableaux Grafana
+|-- simulator/     # modele Python de l'imprimante
+|-- ingestion/     # image et flux Node-RED
+|-- notifier/      # diffusion des alertes
+|-- docker-compose.yml # services, volumes et initialisation InfluxDB
+`-- Makefile
+\end{lstlisting}
+
+Les services de base démarrent sans profil. Le simulateur, Node-RED et le
+notifier utilisent des profils Compose. La commande \texttt{make demo}
+construit et lance l'ensemble.
+
+\section{Simulateur de l'imprimante CIJ}
+
+Le simulateur est écrit en Python. Il contient un état interne, deux
+consommables et un générateur de commandes. Son cycle de fonctionnement suit
+les états \texttt{shutdown}, \texttt{warmup}, \texttt{running},
+\texttt{stopped} et \texttt{fault}. Une loi de Poisson simplifiée déclenche des
+défauts à une fréquence configurable.
+
+Le modèle reprend les données documentées pour la 9450c : cartouches externes
+de 800~mL, réservoirs internes de 1,075~L, état du jet, état d'impression,
+vitesse moteur, pression, viscosité, températures, niveaux et autonomie
+d'encre. Les codes natifs sont publiés en parallèle de l'état
+fonctionnel utilisé par le tableau de bord. Par exemple, le code jet
+\texttt{00h} représente l'arrêt, \texttt{01h} le démarrage et \texttt{07h} le
+fonctionnement normal ; l'état d'impression distingue pause, impression
+opérationnelle et imprimante non prête.
+
+\begin{table}[H]
+\centering
+\caption{Comportements reproduits par le simulateur}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}Y}
+\toprule
+Comportement & Utilité pour les essais \\
+\midrule
+Périodes de commande et périodes vides &
+Vérifier la disponibilité liée à la demande. \\
+Consommation d'encre en production &
+Tester les tendances et la prévision d'épuisement. \\
+Évaporation du solvant avec le jet actif &
+Éviter une prévision basée uniquement sur le nombre de pièces. \\
+Remplissage avec saut de niveau &
+Vérifier le changement de pente et la gestion des lots. \\
+Dérive de viscosité &
+Déclencher une alerte avant une dégradation visible. \\
+Paramètres natifs de la 9450c &
+Vérifier le mapping futur des trames constructeur vers Litmus Edge. \\
+Défauts avec code et durée &
+Alimenter l'historique, le temps d'arrêt et le Pareto. \\
+Silence temporaire du producteur &
+Tester l'alerte d'absence de données. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Chaque message contient un UUID dans \texttt{message\_id}. Le Last Will MQTT
+annonce aussi un arrêt si le client disparaît sans fermeture propre.
+
+\section{Ingestion avec Node-RED}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{flux-node-red.pdf}
+\caption{Chaîne d'ingestion mise en œuvre avec Node-RED}
+  \label{fig:nodered}
+\end{figure}
+
+Node-RED contient trois flux de données et un flux de supervision :
+
+\begin{enumerate}
+  \item \textbf{Télémétrie} reçoit les valeurs continues, contrôle le payload
+        et construit un point \texttt{printer\_telemetry}.
+  \item \textbf{Événements} traite les changements d'état, défauts,
+        remplissages et annonces de démarrage.
+  \item \textbf{Marquages} enregistre le DMC et le résultat de contrôle.
+  \item \textbf{Supervision} sonde InfluxDB, expose \texttt{/health} et
+        centralise les erreurs.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{node-red-telemetrie.png}
+  \caption{Flux Node-RED de télémétrie : MQTT, validation et écriture InfluxDB}
+  \label{fig:nodered-telemetrie-reel}
+\end{figure}
+
+Node-RED utilise un nœud HTTP natif pour appeler directement l'API d'écriture
+v2 d'InfluxDB. Aucun module de base de données supplémentaire n'est nécessaire.
+Le token, le nom
+de l'organisation et le bucket proviennent des variables d'environnement ; ils
+ne sont pas inscrits dans \texttt{flows.json}. Le nœud de préparation échappe
+les tags et les chaînes avant de produire le Line Protocol :
+
+\begin{lstlisting}[language={},caption={Exemple de Line Protocol produit par Node-RED}]
+printer_telemetry,printer_id=CIJ_Printer_L1,line_id=L1 \
+ink_level=74.1,solvent_level=57.3,ink_viscosity=4.19 1785445200000
+\end{lstlisting}
+
+L'appel HTTP utilise une précision en millisecondes. Il cible l'organisation
+\nolinkurl{saint-gobain} et le bucket \nolinkurl{printer_monitoring}. Un message
+invalide est publié sur le topic de rejet avec son topic d'origine et un motif
+compréhensible par l'exploitant.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{node-red-supervision.png}
+  \caption{Flux Node-RED de supervision et de traitement des rejets}
+  \label{fig:nodered-supervision-reel}
+\end{figure}
+
+\section{Écriture idempotente et reprise}
+
+InfluxDB identifie un point par sa mesure, ses tags et son horodatage. Le
+simulateur conserve l'horodatage d'origine lors d'une retransmission. Node-RED
+reconstruit donc la même clé et InfluxDB met à jour le point existant au lieu de
+dupliquer l'observation~\cite{influxduplicate}. Le \texttt{message\_id} reste
+présent dans les événements pour faciliter le diagnostic, sans être utilisé
+comme tag sur la télémétrie afin de limiter la cardinalité.
+
+Une écriture InfluxDB n'offre pas de transaction entre plusieurs mesures. Le
+flux traite chaque message de manière indépendante et conserve sa clé lors
+d'un nouvel essai. Cette limite est acceptable ici : les messages MQTT sont
+autonomes et le rejouage d'un point ne change pas le résultat final.
+
+\section{Requêtes Flux}
+
+Les calculs partagés sont écrits en Flux dans les tableaux de bord et les
+règles d'alerte. Ils couvrent notamment :
+
+\begin{itemize}
+  \item la dernière valeur de chaque champ de télémétrie ;
+  \item la lecture de la classification calculée par Node-RED à partir de la
+        demande et de l'état machine ;
+  \item la lecture des prévisions d'épuisement et de péremption ajoutées au
+        point de télémétrie ;
+  \item la disponibilité quotidienne, calculée uniquement pendant la demande ;
+  \item le Pareto des défauts et le rendement au premier passage.
+\end{itemize}
+
+Les scripts Flux restent dans les fichiers JSON provisionnés de Grafana. Ils
+sont contrôlés par la commande \texttt{make verify}, qui exécute les requêtes
+contre le bucket de démonstration.
+
+\section{Conteneurisation}
+
+Docker Compose démarre six conteneurs : Mosquitto, InfluxDB, Grafana, le
+simulateur, Node-RED et le notifier. Les services attendent la santé de leurs
+dépendances. Les données du courtier, d'InfluxDB et de Grafana sont placées
+dans des volumes.
+
+Les mots de passe sont générés dans un fichier \texttt{.env} exclu du dépôt.
+Le déploiement expose uniquement les interfaces nécessaires aux utilisateurs ;
+les services de transport et de stockage restent internes à la plateforme.
+
+\section{Notification des alertes}
+
+Grafana envoie toutes les alertes vers un webhook unique. Le notifier transforme
+le payload technique en une phrase courte, puis le transmet aux canaux activés.
+Les adaptateurs disponibles sont la console, Telegram, le courrier électronique,
+Microsoft Teams et une passerelle WhatsApp de démonstration.
+
+L'adaptateur \texttt{open-wa} n'est pas retenu pour la production. Il pilote
+WhatsApp Web, dépend d'une session de téléphone et peut cesser de fonctionner
+après une mise à jour. Pour une utilisation industrielle, Teams, l'e-mail ou
+l'API WhatsApp Business officielle sont plus faciles à maintenir.

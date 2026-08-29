@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 4,
   "refresh": "30s",
   "editable": true,
   "time": {
@@ -15,6 +15,76 @@
     "to": "now"
   },
   "panels": [
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Paramètres natifs 9450c — états et procédé",
+      "description": "Dernières valeurs générées par le simulateur selon le modèle de données de l’imprimante.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"jet_status_code\" or r._field == \"printing_status_code\" or r._field == \"motor_speed_rpm\" or r._field == \"pressure_10mbar\" or r._field == \"viscosity_tenth_second\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"printer_id\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"printer_id\", \"jet_status_code\", \"printing_status_code\", \"motor_speed_rpm\", \"pressure_10mbar\", \"viscosity_tenth_second\"])\n  |> rename(columns: {printer_id: \"Imprimante\", jet_status_code: \"Code jet\", printing_status_code: \"Code impression\", motor_speed_rpm: \"Moteur (tr/min)\", pressure_10mbar: \"Pression (10 mbar)\", viscosity_tenth_second: \"Viscosité (0,1 s)\"})",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Paramètres natifs 9450c — capacités et températures",
+      "description": "Capacités nominales, réserve interne et températures simulées.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"printer_monitoring\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"printer_telemetry\" and (r._field == \"external_cartridge_capacity_ml\" or r._field == \"internal_tank_capacity_ml\" or r._field == \"internal_reserve_hours\" or r._field == \"electronic_temperature\" or r._field == \"ink_temperature\" or r._field == \"head_temperature\"))\n  |> group(columns: [\"printer_id\", \"_field\"])\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"printer_id\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> keep(columns: [\"printer_id\", \"external_cartridge_capacity_ml\", \"internal_tank_capacity_ml\", \"internal_reserve_hours\", \"electronic_temperature\", \"ink_temperature\", \"head_temperature\"])\n  |> rename(columns: {printer_id: \"Imprimante\", external_cartridge_capacity_ml: \"Cartouche (mL)\", internal_tank_capacity_ml: \"Réservoir (mL)\", internal_reserve_hours: \"Réserve (h)\", electronic_temperature: \"Électronique (°C)\", ink_temperature: \"Encre (°C)\", head_temperature: \"Tête (°C)\"})",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ]
+    },
     {
       "id": 1,
       "type": "table",
@@ -24,7 +94,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 10
       },
       "datasource": {
         "type": "influxdb",
@@ -129,7 +199,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 17
       },
       "datasource": {
         "type": "influxdb",
@@ -168,7 +238,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 7
+        "y": 17
       },
       "datasource": {
         "type": "influxdb",
@@ -220,7 +290,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 25
       },
       "datasource": {
         "type": "influxdb",
@@ -254,7 +324,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 25
       },
       "datasource": {
         "type": "influxdb",
@@ -314,7 +384,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 33
       },
       "datasource": {
         "type": "influxdb",
@@ -346,7 +416,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 33
       },
       "datasource": {
         "type": "influxdb",
@@ -386,7 +456,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 42
       },
       "datasource": {
         "type": "influxdb",

@@ -19,6 +19,12 @@ const dashboards = [
     range: "now-6h",
   },
   {
+    name: "grafana-simulation-9450c",
+    path: "/d/printer-maintenance/imprimante-maintenance",
+    range: "now-1h",
+    fullPage: false,
+  },
+  {
     name: "grafana-maintenance",
     path: "/d/printer-maintenance/imprimante-maintenance",
     range: "now-6h",
@@ -81,7 +87,7 @@ async function main() {
     const file = path.join(outputDir, `${dashboard.name}.png`);
     await page.screenshot({
       path: file,
-      fullPage: true,
+      fullPage: dashboard.fullPage ?? true,
       animations: "disabled",
     });
     console.log(`${dashboard.name}: ${file}`);

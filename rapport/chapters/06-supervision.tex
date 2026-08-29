@@ -45,6 +45,10 @@ aucun défaut, le panneau affiche ``Aucun défaut'' au lieu de ``No data''.
 La vue maintenance rassemble les informations nécessaires à un diagnostic :
 
 \begin{itemize}
+  \item codes natifs du jet et de l'impression, vitesse moteur, pression et
+        viscosité générés par le simulateur 9450c ;
+  \item capacités de 800~mL et 1,075~L, réserve interne de 24~heures et
+        températures électronique, encre et tête ;
   \item tableau des consommables avec lot, niveau, jours avant épuisement,
         date effective de péremption et facteur limitant ;
   \item courbes d'encre et de solvant ;
@@ -61,10 +65,17 @@ peut être encore remplie à 60~\% et devoir être remplacée cinq jours plus ta
 à cause de sa date après ouverture. Afficher uniquement le niveau masquerait ce
 cas.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{grafana-simulation-9450c.png}
+  \caption{Paramètres natifs produits en direct par la simulation 9450c}
+  \label{fig:grafana-simulation-9450c}
+\end{figure}
+
 \begin{figure}[p]
   \centering
   \includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]{grafana-maintenance.png}
-  \caption{Tableau de bord de maintenance : consommables, tendances et défauts}
+  \caption{Tableau de bord de maintenance alimenté par la simulation 9450c}
   \label{fig:grafana-maintenance}
 \end{figure}
 

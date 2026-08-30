@@ -4,8 +4,8 @@ Rapport en français réalisé pour :
 
 - **Étudiant :** Omar Bengourich
 - **Établissement :** École Nationale des Sciences Appliquées de Kénitra
-- **Filière :** Réseaux et Systèmes de Communication
-- **Option :** Systèmes de télécommunication
+- **Filière :** Réseaux et Systèmes de Télécommunication
+- **Option :** Systèmes ubiquitaires
 - **Organisme d'accueil :** Saint-Gobain Sekurit Maroc
 
 ## Compiler
